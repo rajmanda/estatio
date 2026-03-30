@@ -1,0 +1,65 @@
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+.Python
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+venv/
+.venv/
+env/
+ENV/
+.env
+.env.*
+!.env.example
+*.log
+
+# Node / React
+node_modules/
+dist/
+.next/
+.nuxt/
+.cache/
+coverage/
+.nyc_output/
+frontend/build/
+*.local
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate
+terraform.tfstate.backup
+*.tfvars
+!*.tfvars.example
+.terraformrc
+terraform.rc
+crash.log
+
+# GCP / Auth
+*.json
+!package.json
+!tsconfig.json
+!jsconfig.json
+service-account*.json
+gcp-key*.json
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# Test
+.pytest_cache/
+htmlcov/
+.coverage
+coverage.xml
+
+# Docker
+*.log

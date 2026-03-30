@@ -1,0 +1,92 @@
+##############################################################################
+# Estatio – Production Environment Variable Examples
+#
+# Copy this file to terraform.tfvars and fill in real values.
+# NEVER commit terraform.tfvars to version control – it contains secrets.
+# Add terraform.tfvars to your .gitignore.
+##############################################################################
+
+# ---------------------------------------------------------------------------
+# GCP Project & Deployment Context
+# ---------------------------------------------------------------------------
+
+# Your GCP project ID (not the project number).
+project_id = "your-gcp-project-id"
+
+# GCP region where Cloud Run, Artifact Registry, and GCS resources live.
+# Choosing a region close to your users minimises latency.
+region = "us-central1"
+
+# Must be one of: prod, staging, dev
+environment = "prod"
+
+# Short app identifier used as a resource label.
+app_name = "estatio"
+
+# ---------------------------------------------------------------------------
+# Storage
+# ---------------------------------------------------------------------------
+
+# Globally unique GCS bucket name for property documents and assets.
+# Convention: <app>-documents-<project-id>
+documents_bucket_name = "estatio-documents-your-gcp-project-id"
+
+# ---------------------------------------------------------------------------
+# Sensitive Configuration (stored in Secret Manager at apply time)
+# ---------------------------------------------------------------------------
+
+# MongoDB Atlas (or self-hosted) connection string.
+# Format: mongodb+srv://<user>:<password>@<cluster>.mongodb.net/<db>
+mongodb_connection_string = "mongodb+srv://estatio_user:CHANGE_ME@cluster0.xxxxx.mongodb.net/estatio?retryWrites=true&w=majority"
+
+# Google OAuth 2.0 credentials (create at console.cloud.google.com > APIs & Services > Credentials).
+google_client_id     = "123456789-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx.apps.googleusercontent.com"
+google_client_secret = "GOCSPX-XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
+
+# Application secret key used for JWT signing and session cookies.
+# Generate a strong random value: python3 -c "import secrets; print(secrets.token_hex(32))"
+secret_key = "CHANGE_ME_use_a_long_random_string_at_least_32_chars"
+
+# OpenAI API key – leave as empty string to skip secret creation.
+openai_api_key = ""
+
+# Google Gemini API key – leave as empty string to skip secret creation.
+gemini_api_key = ""
+
+# ---------------------------------------------------------------------------
+# Container Images
+# ---------------------------------------------------------------------------
+
+# Full Artifact Registry paths.  Replace PROJECT_ID and TAG as appropriate.
+# After the first `terraform apply` you can retrieve the registry base URL
+# from the artifact_registry_url output.
+backend_image  = "us-central1-docker.pkg.dev/your-gcp-project-id/estatio-images/backend:latest"
+frontend_image = "us-central1-docker.pkg.dev/your-gcp-project-id/estatio-images/frontend:latest"
+
+# ---------------------------------------------------------------------------
+# Cloud Run Scaling
+# ---------------------------------------------------------------------------
+
+# Set backend_min_instances = 1 in production to eliminate cold starts,
+# at the cost of always running at least one instance.
+backend_min_instances  = 1
+backend_max_instances  = 10
+
+frontend_min_instances = 0
+frontend_max_instances = 5
+
+# ---------------------------------------------------------------------------
+# Networking / DNS (optional)
+# ---------------------------------------------------------------------------
+
+# Custom domain mapped to the frontend Cloud Run service.
+# Leave as null to use the auto-generated *.run.app URL.
+# domain_name = "app.estatio.io"
+
+# ---------------------------------------------------------------------------
+# CI/CD – GitHub Actions Workload Identity
+# ---------------------------------------------------------------------------
+
+# GitHub repository that will use Workload Identity Federation to deploy.
+# Format: "owner/repo"  (no https://, no trailing slash)
+github_repo = "your-github-org/estatio"
