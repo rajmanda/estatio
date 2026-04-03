@@ -469,7 +469,7 @@ async def update_work_order_status(
     """
     from app.services.notification_service import notify_work_order_update
 
-    raw = await _get_work_order_or_404(db, work_order_id)
+    await _get_work_order_or_404(db, work_order_id)
     user_id = str(current_user["_id"])
     now = datetime.utcnow()
 
@@ -515,7 +515,7 @@ async def submit_estimate(
     """
     from app.services.notification_service import notify_work_order_update
 
-    raw = await _get_work_order_or_404(db, work_order_id)
+    await _get_work_order_or_404(db, work_order_id)
     now = datetime.utcnow()
 
     estimate = VendorEstimate(

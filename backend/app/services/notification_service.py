@@ -36,8 +36,8 @@ _sendgrid_available = False
 
 try:
     if settings.SENDGRID_API_KEY:
-        from sendgrid import SendGridAPIClient  # type: ignore
-        from sendgrid.helpers.mail import Mail  # type: ignore
+        from sendgrid import SendGridAPIClient  # noqa: F401
+        from sendgrid.helpers.mail import Mail  # noqa: F401
 
         _sendgrid_available = True
         log.info("SendGrid client available")
