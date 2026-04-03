@@ -37,6 +37,7 @@ jobs:
         with:
           workload_identity_provider: ${{ secrets.WIF_PROVIDER }}
           service_account: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+          audience: 'google-wif'
 
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
