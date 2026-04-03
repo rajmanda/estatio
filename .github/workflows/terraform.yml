@@ -57,12 +57,12 @@ jobs:
         id: plan
         run: |
           terraform plan -no-color -out=tfplan \
-            -var="project_id=${{ secrets.GCP_PROJECT_ID }}" \
+            -var="project_id=${{ vars.GCP_PROJECT_ID }}" \
             -var="mongodb_connection_string=${{ secrets.MONGODB_URL }}" \
             -var="google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}" \
             -var="google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}" \
             -var="secret_key=${{ secrets.APP_SECRET_KEY }}" \
-            -var="documents_bucket_name=estatio-documents-${{ secrets.GCP_PROJECT_ID }}" 2>&1 | tee plan_output.txt
+            -var="documents_bucket_name=estatio-documents-${{ vars.GCP_PROJECT_ID }}" 2>&1 | tee plan_output.txt
         continue-on-error: true
 
       - name: Comment PR with plan

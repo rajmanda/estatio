@@ -12,7 +12,7 @@ on:
       - 'frontend/**'
 
 env:
-  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
   REGION: us-central1
   SERVICE_NAME: estatio-web
   REGISTRY: us-central1-docker.pkg.dev
