@@ -62,6 +62,7 @@ async def maintenance_predictions(
 @router.post("/documents/{doc_id}/classify")
 async def reclassify_document(
     doc_id: str,
+    background_tasks: __import__("fastapi").BackgroundTasks,
     db=Depends(get_db),
     current_user=Depends(get_current_active_user),
 ):
