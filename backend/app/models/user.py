@@ -1,8 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
-from typing import Optional, List
+from typing import Optional
 from datetime import datetime
 from enum import Enum
-from bson import ObjectId
 
 
 class UserRole(str, Enum):

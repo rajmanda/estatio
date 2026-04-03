@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import asyncio
 import uuid
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
 from functools import partial
 from typing import Any, Dict, List, Optional
 
@@ -112,7 +112,6 @@ def _sync_upload_blob(
     content_type: str,
 ) -> None:
     """Upload bytes to GCS (sync — must be called via run_in_executor)."""
-    from google.cloud import storage  # type: ignore
 
     client = _get_gcs_client()
     bucket = client.bucket(bucket_name)
@@ -127,7 +126,6 @@ def _sync_generate_signed_url(
     expiry_minutes: int,
 ) -> str:
     """Generate a V4 signed URL (sync — must be called via run_in_executor)."""
-    from google.cloud import storage  # type: ignore
 
     client = _get_gcs_client()
     bucket = client.bucket(bucket_name)
@@ -143,7 +141,6 @@ def _sync_generate_signed_url(
 def _sync_delete_blob(bucket_name: str, gcs_path: str) -> bool:
     """Delete a GCS object (sync — must be called via run_in_executor)."""
     try:
-        from google.cloud import storage  # type: ignore
 
         client = _get_gcs_client()
         bucket = client.bucket(bucket_name)
@@ -158,7 +155,6 @@ def _sync_delete_blob(bucket_name: str, gcs_path: str) -> bool:
 
 def _sync_download_blob(bucket_name: str, gcs_path: str) -> bytes:
     """Download a GCS object as bytes (sync — must be called via run_in_executor)."""
-    from google.cloud import storage  # type: ignore
 
     client = _get_gcs_client()
     bucket = client.bucket(bucket_name)

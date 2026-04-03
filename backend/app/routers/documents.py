@@ -1,10 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
-from bson import ObjectId
 from typing import Optional
 from app.core.auth import get_current_active_user
 from app.core.database import get_db
 from app.services.document_service import (
-    upload_document, list_documents, get_document,
+    upload_document, get_document,
     get_signed_url, delete_document, process_document_ai
 )
 import asyncio

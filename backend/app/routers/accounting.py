@@ -19,7 +19,6 @@ Endpoints:
 
 from datetime import datetime, date, timezone
 from typing import Any, Dict, List, Optional
-import re
 
 import structlog
 from bson import ObjectId

@@ -27,12 +27,9 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.models.accounting import (
-    AccountDB,
     AccountSubtype,
     AccountType,
-    JournalEntryDB,
     JournalLine,
-    LedgerBalanceDB,
 )
 
 log = structlog.get_logger(__name__)

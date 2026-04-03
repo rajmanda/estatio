@@ -29,9 +29,6 @@ from bson import ObjectId
 from motor.motor_asyncio import AsyncIOMotorDatabase
 
 from app.models.maintenance import (
-    PreventiveMaintenanceDB,
-    StatusHistoryEntry,
-    VendorEstimate,
     WorkOrderCategory,
     WorkOrderPriority,
     WorkOrderStatus,

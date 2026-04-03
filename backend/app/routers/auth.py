@@ -16,10 +16,10 @@ import httpx
 import structlog
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.responses import RedirectResponse
 from jose import JWTError
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel
 
 from app.core.auth import get_current_active_user
 from app.core.config import settings

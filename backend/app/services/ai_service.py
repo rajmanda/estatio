@@ -141,7 +141,6 @@ async def _gemini_generate(prompt: str, image_data: Optional[bytes] = None) -> s
 
     if image_data is not None:
         # Multimodal: include raw image bytes
-        import google.generativeai as genai  # noqa: F811
 
         image_part = {
             "mime_type": "application/octet-stream",

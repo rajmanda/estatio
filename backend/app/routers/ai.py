@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from app.core.auth import get_current_active_user
 from app.core.database import get_db
 from app.services.ai_service import (
     answer_query, generate_insight,
-    predict_maintenance, classify_document
+    predict_maintenance
 )
 from app.services.document_service import get_document
 import structlog

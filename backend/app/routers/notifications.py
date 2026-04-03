@@ -1,5 +1,4 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from bson import ObjectId
 from app.core.auth import get_current_active_user
 from app.core.database import get_db
 from app.services.notification_service import (

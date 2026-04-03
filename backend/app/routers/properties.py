@@ -22,7 +22,7 @@ import structlog
 from bson import ObjectId
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from motor.motor_asyncio import AsyncIOMotorDatabase
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 
 from app.core.auth import (
     get_current_active_user,
@@ -30,11 +30,8 @@ from app.core.auth import (
 )
 from app.core.database import get_db
 from app.models.property import (
-    Address,
-    HOAInfo,
     PropertyStatus,
     PropertyType,
-    Unit,
 )
 from app.models.user import UserRole
 
