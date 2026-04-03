@@ -116,7 +116,7 @@ jobs:
             --min-instances=0
             --max-instances=5
             --memory=256Mi
-            --cpu=0.5
+            --cpu=1
             --concurrency=80
 
       - name: Show deployed URL
