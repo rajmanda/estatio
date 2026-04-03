@@ -12,7 +12,7 @@ import {
   PauseCircleIcon,
 } from '@heroicons/react/24/solid'
 
-const cn = (...inputs: (string | undefined | null | false)[]) => twMerge(clsx(inputs))
+const cn = (...inputs: Parameters<typeof clsx>) => twMerge(clsx(inputs))
 
 export type BadgeStatus =
   | 'paid'

@@ -19,7 +19,7 @@ interface GlassButtonProps extends Omit<HTMLMotionProps<'button'>, 'children'> {
   className?: string
 }
 
-const cn = (...inputs: (string | undefined | null | false)[]) => twMerge(clsx(inputs))
+const cn = (...inputs: Parameters<typeof clsx>) => twMerge(clsx(inputs))
 
 const variantClasses: Record<ButtonVariant, string> = {
   primary: [

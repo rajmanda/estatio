@@ -34,8 +34,7 @@ const glowColorMap: Record<string, string> = {
   info: 'hover:shadow-[0_0_30px_rgba(59,130,246,0.35),0_12px_40px_rgba(59,130,246,0.25)]',
 }
 
-const cn = (...inputs: (string | undefined | null | false)[]) =>
-  twMerge(clsx(inputs))
+const cn = (...inputs: Parameters<typeof clsx>) => twMerge(clsx(inputs))
 
 export const GlassCard: React.FC<GlassCardProps> = ({
   children,

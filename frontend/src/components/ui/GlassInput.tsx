@@ -4,7 +4,7 @@ import { twMerge } from 'tailwind-merge'
 import { EyeIcon, EyeSlashIcon, ExclamationCircleIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 
-const cn = (...inputs: (string | undefined | null | false)[]) => twMerge(clsx(inputs))
+const cn = (...inputs: Parameters<typeof clsx>) => twMerge(clsx(inputs))
 
 interface GlassInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'size'> {
   label?: string
