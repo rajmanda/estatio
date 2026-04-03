@@ -89,7 +89,7 @@ jobs:
 
       - name: Generate image tag
         id: tag
-        run: echo "tag=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/estatio-images/frontend:${{ github.sha }}" >> $GITHUB_OUTPUT
+        run: echo "tag=${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/estatio/frontend:${{ github.sha }}" >> $GITHUB_OUTPUT
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
@@ -98,7 +98,7 @@ jobs:
           push: true
           tags: |
             ${{ steps.tag.outputs.tag }}
-            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/estatio-images/frontend:${{ steps.env.outputs.environment }}-latest
+            ${{ env.REGISTRY }}/${{ env.PROJECT_ID }}/estatio/frontend:${{ steps.env.outputs.environment }}-latest
           cache-from: type=gha
           cache-to: type=gha,mode=max
           build-args: |

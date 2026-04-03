@@ -229,3 +229,5 @@ The redirect URI in Google Cloud Console must exactly match `GOOGLE_REDIRECT_URI
 
 **Celery tasks not processing**
 Ensure Redis is running and `REDIS_URL` points to it. When using Docker Compose, this is handled automatically.
+
+Hello
