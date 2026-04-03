@@ -13,11 +13,11 @@ Responsibilities:
   - Void invoices with reversing journal entries
 
 MongoDB collections used:
-  invoices              – InvoiceDB
-  payments              – PaymentDB
-  recurring_schedules   – RecurringScheduleDB
-  accounts              – AccountDB (for journal line lookups)
-  notifications         – NotificationDB
+  invoices              - InvoiceDB
+  payments              - PaymentDB
+  recurring_schedules   - RecurringScheduleDB
+  accounts              - AccountDB (for journal line lookups)
+  notifications         - NotificationDB
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ log = structlog.get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _new_id() -> str:
     return str(ObjectId())
@@ -103,6 +104,7 @@ async def _send_notification(
 # Create invoice
 # ---------------------------------------------------------------------------
 
+
 async def create_invoice(
     db: AsyncIOMotorDatabase,
     invoice_data: Dict[str, Any],
@@ -111,18 +113,18 @@ async def create_invoice(
     Create a new invoice.
 
     ``invoice_data`` keys:
-        owner_id                – str (required)
-        property_id             – str (required)
-        billing_period_start    – date | ISO str (required)
-        billing_period_end      – date | ISO str (required)
-        issue_date              – date | ISO str (defaults to today)
-        due_date                – date | ISO str (required)
-        line_items              – list of:
+        owner_id                - str (required)
+        property_id             - str (required)
+        billing_period_start    - date | ISO str (required)
+        billing_period_end      - date | ISO str (required)
+        issue_date              - date | ISO str (defaults to today)
+        due_date                - date | ISO str (required)
+        line_items              - list of:
                                     { description, quantity, unit_price,
                                       amount, account_code?, tax_rate? }
-        notes                   – str (optional)
-        created_by              – str (user_id, required)
-        recurring_schedule_id   – str (optional)
+        notes                   - str (optional)
+        created_by              - str (user_id, required)
+        recurring_schedule_id   - str (optional)
 
     Behaviour:
       - Auto-generates invoice_number (INV-{YEAR}-{SEQ:05d})
@@ -190,19 +192,19 @@ async def create_invoice(
         {
             "owner_id": owner_id,
             "property_id": property_id,
-            "status": {"$in": [
-                InvoiceStatus.SENT.value,
-                InvoiceStatus.VIEWED.value,
-                InvoiceStatus.PARTIAL.value,
-                InvoiceStatus.OVERDUE.value,
-            ]},
+            "status": {
+                "$in": [
+                    InvoiceStatus.SENT.value,
+                    InvoiceStatus.VIEWED.value,
+                    InvoiceStatus.PARTIAL.value,
+                    InvoiceStatus.OVERDUE.value,
+                ]
+            },
         },
         sort=[("created_at", -1)],
     )
     if prior_invoice:
-        carried_forward_balance = _round2(
-            float(prior_invoice.get("balance_due", 0.0))
-        )
+        carried_forward_balance = _round2(float(prior_invoice.get("balance_due", 0.0)))
 
     balance_due = _round2(total_amount + carried_forward_balance)
     invoice_number = await _next_invoice_number(db)
@@ -271,7 +273,7 @@ async def create_invoice(
                 db,
                 {
                     "date": issue_date,
-                    "description": f"Invoice {invoice_number} – {property_id}",
+                    "description": f"Invoice {invoice_number} - {property_id}",
                     "entry_type": "invoice",
                     "lines": je_lines,
                     "reference_id": invoice_id,
@@ -282,7 +284,12 @@ async def create_invoice(
             )
             await db.invoices.update_one(
                 {"_id": invoice_id},
-                {"$set": {"journal_entry_id": je["_id"], "updated_at": datetime.utcnow()}},
+                {
+                    "$set": {
+                        "journal_entry_id": je["_id"],
+                        "updated_at": datetime.utcnow(),
+                    }
+                },
             )
             doc["journal_entry_id"] = je["_id"]
         except Exception as exc:
@@ -301,6 +308,7 @@ async def create_invoice(
 # ---------------------------------------------------------------------------
 # Send invoice
 # ---------------------------------------------------------------------------
+
 
 async def send_invoice(
     db: AsyncIOMotorDatabase,
@@ -373,6 +381,7 @@ async def send_invoice(
 # Apply payment
 # ---------------------------------------------------------------------------
 
+
 async def apply_payment(
     db: AsyncIOMotorDatabase,
     invoice_id: str,
@@ -382,12 +391,12 @@ async def apply_payment(
     Record a payment against an invoice.
 
     ``payment_data`` keys:
-        amount          – float (required)
-        payment_date    – date | ISO str (defaults to today)
-        payment_method  – str (check | ach | wire | cash | credit_card | other)
-        reference_number– str (optional)
-        recorded_by     – str (user_id, required)
-        notes           – str (optional)
+        amount          - float (required)
+        payment_date    - date | ISO str (defaults to today)
+        payment_method  - str (check | ach | wire | cash | credit_card | other)
+        reference_number- str (optional)
+        recorded_by     - str (user_id, required)
+        notes           - str (optional)
 
     Effects:
       - Creates a PaymentDB document
@@ -402,10 +411,11 @@ async def apply_payment(
     if not invoice:
         raise ValueError(f"Invoice {invoice_id} not found")
 
-    if invoice.get("status") in (InvoiceStatus.VOID.value, InvoiceStatus.WRITE_OFF.value):
-        raise ValueError(
-            f"Cannot apply payment to a {invoice['status']} invoice."
-        )
+    if invoice.get("status") in (
+        InvoiceStatus.VOID.value,
+        InvoiceStatus.WRITE_OFF.value,
+    ):
+        raise ValueError(f"Cannot apply payment to a {invoice['status']} invoice.")
 
     def _to_date(val: Any) -> date:
         if isinstance(val, date):
@@ -493,7 +503,7 @@ async def apply_payment(
                 {
                     "date": payment_date,
                     "description": (
-                        f"Payment received – {invoice['invoice_number']} "
+                        f"Payment received - {invoice['invoice_number']} "
                         f"(${payment_amount:.2f})"
                     ),
                     "entry_type": "payment",
@@ -557,6 +567,7 @@ async def apply_payment(
 # Apply late fee
 # ---------------------------------------------------------------------------
 
+
 async def apply_late_fee(
     db: AsyncIOMotorDatabase,
     invoice_id: str,
@@ -581,7 +592,11 @@ async def apply_late_fee(
         return invoice
 
     status = invoice.get("status", "")
-    if status in (InvoiceStatus.PAID.value, InvoiceStatus.VOID.value, InvoiceStatus.WRITE_OFF.value):
+    if status in (
+        InvoiceStatus.PAID.value,
+        InvoiceStatus.VOID.value,
+        InvoiceStatus.WRITE_OFF.value,
+    ):
         return invoice
 
     # Determine grace period and rate from linked schedule
@@ -647,7 +662,7 @@ async def apply_late_fee(
                 {
                     "date": date.today(),
                     "description": (
-                        f"Late fee – {invoice['invoice_number']} (${late_fee:.2f})"
+                        f"Late fee - {invoice['invoice_number']} (${late_fee:.2f})"
                     ),
                     "entry_type": "adjustment",
                     "lines": [
@@ -657,7 +672,7 @@ async def apply_late_fee(
                             "account_name": ar_account["name"],
                             "debit": late_fee,
                             "credit": 0.0,
-                            "description": f"Late fee – {invoice['invoice_number']}",
+                            "description": f"Late fee - {invoice['invoice_number']}",
                             "property_id": invoice.get("property_id"),
                         },
                         {
@@ -666,7 +681,7 @@ async def apply_late_fee(
                             "account_name": late_fee_account["name"],
                             "debit": 0.0,
                             "credit": late_fee,
-                            "description": f"Late fee – {invoice['invoice_number']}",
+                            "description": f"Late fee - {invoice['invoice_number']}",
                             "property_id": invoice.get("property_id"),
                         },
                     ],
@@ -684,7 +699,7 @@ async def apply_late_fee(
         db,
         user_id=invoice["owner_id"],
         notif_type="invoice_overdue",
-        title=f"Late Fee Applied – {invoice['invoice_number']}",
+        title=f"Late Fee Applied - {invoice['invoice_number']}",
         message=(
             f"A late fee of ${late_fee:.2f} has been added to invoice "
             f"{invoice['invoice_number']}. New balance: ${new_balance_due:.2f}."
@@ -714,6 +729,7 @@ async def apply_late_fee(
 # ---------------------------------------------------------------------------
 # Generate recurring invoices
 # ---------------------------------------------------------------------------
+
 
 async def generate_recurring_invoices(db: AsyncIOMotorDatabase) -> Dict[str, Any]:
     """
@@ -754,7 +770,9 @@ async def generate_recurring_invoices(db: AsyncIOMotorDatabase) -> Dict[str, Any
                     due_date = date(today.year + 1, 1, sched.get("day_of_month", 1))
                     next_run = date(today.year + 1, 1, sched.get("day_of_month", 1))
                 else:
-                    due_date = date(today.year, today.month + 1, sched.get("day_of_month", 1))
+                    due_date = date(
+                        today.year, today.month + 1, sched.get("day_of_month", 1)
+                    )
                     next_run = due_date
             elif frequency == "quarterly":
                 # Add 3 months
@@ -764,7 +782,9 @@ async def generate_recurring_invoices(db: AsyncIOMotorDatabase) -> Dict[str, Any
                 due_date = date(year, month, sched.get("day_of_month", 1))
                 next_run = due_date
             elif frequency == "annually":
-                due_date = date(today.year + 1, today.month, sched.get("day_of_month", 1))
+                due_date = date(
+                    today.year + 1, today.month, sched.get("day_of_month", 1)
+                )
                 next_run = due_date
             else:
                 due_date = today + timedelta(days=30)
@@ -832,13 +852,16 @@ async def generate_recurring_invoices(db: AsyncIOMotorDatabase) -> Dict[str, Any
             )
             errors.append({"schedule_id": sched_id, "error": str(exc)})
 
-    logger.info("Recurring invoice generation complete", generated=generated, errors=len(errors))
+    logger.info(
+        "Recurring invoice generation complete", generated=generated, errors=len(errors)
+    )
     return {"generated": generated, "errors": errors}
 
 
 # ---------------------------------------------------------------------------
 # Owner balance
 # ---------------------------------------------------------------------------
+
 
 async def get_owner_balance(
     db: AsyncIOMotorDatabase,
@@ -905,6 +928,7 @@ async def get_owner_balance(
 # Void invoice
 # ---------------------------------------------------------------------------
 
+
 async def void_invoice(
     db: AsyncIOMotorDatabase,
     invoice_id: str,
@@ -940,9 +964,7 @@ async def void_invoice(
                 db,
                 {
                     "date": date.today(),
-                    "description": (
-                        f"VOID – {invoice['invoice_number']}: {reason}"
-                    ),
+                    "description": (f"VOID - {invoice['invoice_number']}: {reason}"),
                     "entry_type": "adjustment",
                     "lines": [
                         {
@@ -951,7 +973,7 @@ async def void_invoice(
                             "account_name": revenue_account["name"],
                             "debit": total_amount,
                             "credit": 0.0,
-                            "description": f"Reversal – {invoice['invoice_number']}",
+                            "description": f"Reversal - {invoice['invoice_number']}",
                             "property_id": invoice.get("property_id"),
                         },
                         {
@@ -960,7 +982,7 @@ async def void_invoice(
                             "account_name": ar_account["name"],
                             "debit": 0.0,
                             "credit": total_amount,
-                            "description": f"Reversal – {invoice['invoice_number']}",
+                            "description": f"Reversal - {invoice['invoice_number']}",
                             "property_id": invoice.get("property_id"),
                         },
                     ],

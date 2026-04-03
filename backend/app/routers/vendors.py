@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from datetime import date, datetime
+from typing import List, Optional
+
 from bson import ObjectId
-from datetime import datetime, date
-from typing import Optional, List
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, EmailStr
+
 from app.core.auth import get_current_active_user, require_manager_or_admin
 from app.core.database import get_db
 
@@ -122,7 +124,12 @@ async def get_vendor_invoices(
     db=Depends(get_db),
     current_user=Depends(require_manager_or_admin),
 ):
-    invoices = await db.vendor_invoices.find({"vendor_id": vendor_id}).skip(skip).limit(limit).to_list(limit)
+    invoices = (
+        await db.vendor_invoices.find({"vendor_id": vendor_id})
+        .skip(skip)
+        .limit(limit)
+        .to_list(limit)
+    )
     total = await db.vendor_invoices.count_documents({"vendor_id": vendor_id})
     return {"invoices": [_serialize(i) for i in invoices], "total": total}
 
@@ -154,9 +161,13 @@ async def get_vendor_work_orders(
     db=Depends(get_db),
     current_user=Depends(get_current_active_user),
 ):
-    wos = await db.work_orders.find(
-        {"assigned_vendor_id": vendor_id}
-    ).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    wos = (
+        await db.work_orders.find({"assigned_vendor_id": vendor_id})
+        .sort("created_at", -1)
+        .skip(skip)
+        .limit(limit)
+        .to_list(limit)
+    )
     total = await db.work_orders.count_documents({"assigned_vendor_id": vendor_id})
     return {"work_orders": [_serialize(w) for w in wos], "total": total}
 
@@ -169,11 +180,13 @@ async def get_vendor_stats(
 ):
     pipeline = [
         {"$match": {"assigned_vendor_id": vendor_id}},
-        {"$group": {
-            "_id": "$status",
-            "count": {"$sum": 1},
-            "total_cost": {"$sum": {"$ifNull": ["$actual_cost", 0]}},
-        }},
+        {
+            "$group": {
+                "_id": "$status",
+                "count": {"$sum": 1},
+                "total_cost": {"$sum": {"$ifNull": ["$actual_cost", 0]}},
+            }
+        },
     ]
     breakdown = await db.work_orders.aggregate(pipeline).to_list(20)
     total_spend = sum(b.get("total_cost", 0) for b in breakdown)

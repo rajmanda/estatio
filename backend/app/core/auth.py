@@ -1,11 +1,12 @@
+import structlog
+from bson import ObjectId
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError
-from bson import ObjectId
-from app.core.security import decode_token
+
 from app.core.database import get_db
+from app.core.security import decode_token
 from app.models.user import UserRole
-import structlog
 
 log = structlog.get_logger()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/token")
@@ -49,6 +50,7 @@ def require_roles(*roles: UserRole):
                 detail=f"Requires one of roles: {[r.value for r in roles]}",
             )
         return current_user
+
     return role_checker
 
 

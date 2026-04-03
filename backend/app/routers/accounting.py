@@ -17,7 +17,7 @@ Endpoints:
     GET    /reports/owner-statement/{owner_id}  → owner statement
 """
 
-from datetime import datetime, date, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import structlog
@@ -31,7 +31,7 @@ from app.core.auth import (
     require_manager_or_admin,
 )
 from app.core.database import get_db
-from app.models.accounting import AccountType, AccountSubtype
+from app.models.accounting import AccountSubtype, AccountType
 from app.models.user import UserRole
 
 log = structlog.get_logger()
@@ -41,6 +41,7 @@ router = APIRouter(prefix="/accounting", tags=["accounting"])
 # ---------------------------------------------------------------------------
 # Inline Pydantic schemas
 # ---------------------------------------------------------------------------
+
 
 class AccountCreateRequest(BaseModel):
     code: str
@@ -55,7 +56,11 @@ class AccountCreateRequest(BaseModel):
     @model_validator(mode="after")
     def set_normal_balance_default(self):
         """Revenue and liability accounts normally carry a credit balance."""
-        if self.account_type in (AccountType.REVENUE, AccountType.LIABILITY, AccountType.EQUITY):
+        if self.account_type in (
+            AccountType.REVENUE,
+            AccountType.LIABILITY,
+            AccountType.EQUITY,
+        ):
             self.normal_balance = "credit"
         else:
             self.normal_balance = "debit"
@@ -89,7 +94,9 @@ class JournalLineRequest(BaseModel):
         if self.debit == 0.0 and self.credit == 0.0:
             raise ValueError("Each journal line must have a non-zero debit or credit.")
         if self.debit > 0 and self.credit > 0:
-            raise ValueError("A journal line cannot have both debit and credit amounts.")
+            raise ValueError(
+                "A journal line cannot have both debit and credit amounts."
+            )
         return self
 
 
@@ -120,6 +127,7 @@ class VoidEntryRequest(BaseModel):
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _obj_id(raw_id: str) -> ObjectId:
     try:
@@ -167,7 +175,9 @@ async def _next_entry_number(db: AsyncIOMotorDatabase) -> str:
 
 
 async def _get_account_or_404(account_id: str, db: AsyncIOMotorDatabase) -> dict:
-    account = await db.accounts.find_one({"_id": _obj_id(account_id), "is_active": True})
+    account = await db.accounts.find_one(
+        {"_id": _obj_id(account_id), "is_active": True}
+    )
     if not account:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -186,7 +196,12 @@ async def _enrich_journal_lines(
         if account_id:
             try:
                 account = await db.accounts.find_one({"_id": _obj_id(account_id)})
-            except Exception:
+            except Exception as exc:
+                log.warning(
+                    "Failed to fetch account for enrichment",
+                    account_id=account_id,
+                    error=str(exc),
+                )
                 account = None
             if account:
                 line["account_code"] = account.get("code", "")
@@ -198,6 +213,7 @@ async def _enrich_journal_lines(
 # ---------------------------------------------------------------------------
 # Chart of Accounts
 # ---------------------------------------------------------------------------
+
 
 @router.get("/accounts", summary="Chart of accounts")
 async def list_accounts(
@@ -266,7 +282,12 @@ async def get_account(
 # Journal Entries
 # ---------------------------------------------------------------------------
 
-@router.post("/journal-entries", status_code=status.HTTP_201_CREATED, summary="Create journal entry")
+
+@router.post(
+    "/journal-entries",
+    status_code=status.HTTP_201_CREATED,
+    summary="Create journal entry",
+)
 async def create_journal_entry(
     body: JournalEntryCreateRequest,
     current_user: dict = Depends(require_manager_or_admin),
@@ -280,15 +301,17 @@ async def create_journal_entry(
     enriched_lines = []
     for line in body.lines:
         account = await _get_account_or_404(line.account_id, db)
-        enriched_lines.append({
-            "account_id": line.account_id,
-            "account_code": account["code"],
-            "account_name": account["name"],
-            "debit": line.debit,
-            "credit": line.credit,
-            "description": line.description,
-            "property_id": line.property_id or body.property_id,
-        })
+        enriched_lines.append(
+            {
+                "account_id": line.account_id,
+                "account_code": account["code"],
+                "account_name": account["name"],
+                "debit": line.debit,
+                "credit": line.credit,
+                "description": line.description,
+                "property_id": line.property_id or body.property_id,
+            }
+        )
 
     now = datetime.now(timezone.utc)
     entry_number = await _next_entry_number(db)
@@ -362,7 +385,9 @@ async def get_journal_entry(
     """Return a single journal entry by ID."""
     entry = await db.journal_entries.find_one({"_id": _obj_id(entry_id)})
     if not entry:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found"
+        )
     return _serialize(entry)
 
 
@@ -379,7 +404,9 @@ async def void_journal_entry(
     """
     original = await db.journal_entries.find_one({"_id": _obj_id(entry_id)})
     if not original:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Journal entry not found"
+        )
     if original.get("is_voided"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -403,15 +430,17 @@ async def void_journal_entry(
     # Create reversing entry (swap debits/credits)
     reversing_lines = []
     for line in original.get("lines", []):
-        reversing_lines.append({
-            "account_id": line["account_id"],
-            "account_code": line.get("account_code", ""),
-            "account_name": line.get("account_name", ""),
-            "debit": line.get("credit", 0.0),
-            "credit": line.get("debit", 0.0),
-            "description": f"VOID: {line.get('description', '')}",
-            "property_id": line.get("property_id"),
-        })
+        reversing_lines.append(
+            {
+                "account_id": line["account_id"],
+                "account_code": line.get("account_code", ""),
+                "account_name": line.get("account_name", ""),
+                "debit": line.get("credit", 0.0),
+                "credit": line.get("debit", 0.0),
+                "description": f"VOID: {line.get('description', '')}",
+                "property_id": line.get("property_id"),
+            }
+        )
 
     entry_number = await _next_entry_number(db)
     reversing_doc = {
@@ -440,6 +469,7 @@ async def void_journal_entry(
 # ---------------------------------------------------------------------------
 # Report helpers
 # ---------------------------------------------------------------------------
+
 
 async def _account_balances(
     db: AsyncIOMotorDatabase,
@@ -519,6 +549,7 @@ def _compute_balance(row: Dict[str, Any]) -> float:
 # Reports
 # ---------------------------------------------------------------------------
 
+
 @router.get("/reports/trial-balance", summary="Trial balance report")
 async def trial_balance(
     date_from: Optional[str] = Query(None, description="Start date YYYY-MM-DD"),
@@ -542,16 +573,18 @@ async def trial_balance(
 
     accounts_list = []
     for row in rows:
-        accounts_list.append({
-            "account_id": str(row["account_id"]),
-            "account_code": row.get("account_code", ""),
-            "account_name": row.get("account_name", ""),
-            "account_type": row.get("account_type"),
-            "subtype": row.get("subtype"),
-            "total_debit": round(row["total_debit"], 2),
-            "total_credit": round(row["total_credit"], 2),
-            "balance": _compute_balance(row),
-        })
+        accounts_list.append(
+            {
+                "account_id": str(row["account_id"]),
+                "account_code": row.get("account_code", ""),
+                "account_name": row.get("account_name", ""),
+                "account_type": row.get("account_type"),
+                "subtype": row.get("subtype"),
+                "total_debit": round(row["total_debit"], 2),
+                "total_credit": round(row["total_credit"], 2),
+                "balance": _compute_balance(row),
+            }
+        )
 
     return {
         "title": "Trial Balance",
@@ -585,7 +618,9 @@ async def income_statement(
             {"owner_id": str(current_user["_id"]), "property_id": property_id}
         )
         if not ownership:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+            )
 
     dt_from = _parse_date(date_from, "date_from")
     dt_to = _parse_date(date_to, "date_to")
@@ -601,13 +636,15 @@ async def income_statement(
         for r in sorted(accounts, key=lambda x: x.get("account_code", "")):
             balance = _compute_balance(r)
             total += balance
-            items.append({
-                "account_id": str(r["account_id"]),
-                "account_code": r.get("account_code", ""),
-                "account_name": r.get("account_name", ""),
-                "subtype": r.get("subtype"),
-                "amount": balance,
-            })
+            items.append(
+                {
+                    "account_id": str(r["account_id"]),
+                    "account_code": r.get("account_code", ""),
+                    "account_name": r.get("account_name", ""),
+                    "subtype": r.get("subtype"),
+                    "amount": balance,
+                }
+            )
         return {"items": items, "total": round(total, 2)}
 
     revenue_section = _section(revenue_accounts)
@@ -644,7 +681,9 @@ async def balance_sheet(
     """
     dt_to = _parse_date(as_of_date, "as_of_date")
 
-    rows = await _account_balances(db, date_from=None, date_to=dt_to, property_id=property_id)
+    rows = await _account_balances(
+        db, date_from=None, date_to=dt_to, property_id=property_id
+    )
 
     def _section(acct_type: str) -> Dict[str, Any]:
         items = []
@@ -655,13 +694,15 @@ async def balance_sheet(
         ):
             balance = _compute_balance(r)
             total += balance
-            items.append({
-                "account_id": str(r["account_id"]),
-                "account_code": r.get("account_code", ""),
-                "account_name": r.get("account_name", ""),
-                "subtype": r.get("subtype"),
-                "balance": balance,
-            })
+            items.append(
+                {
+                    "account_id": str(r["account_id"]),
+                    "account_code": r.get("account_code", ""),
+                    "account_name": r.get("account_name", ""),
+                    "subtype": r.get("subtype"),
+                    "balance": balance,
+                }
+            )
         return {"items": items, "total": round(total, 2)}
 
     assets = _section("asset")
@@ -830,11 +871,15 @@ async def owner_statement(
 
     if role not in (UserRole.ADMIN.value, UserRole.MANAGER.value):
         if caller_id != owner_id:
-            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+            )
 
     owner = await db.users.find_one({"_id": _obj_id(owner_id)})
     if not owner:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found"
+        )
 
     dt_from = _parse_date(date_from, "date_from")
     dt_to = _parse_date(date_to, "date_to")
@@ -856,7 +901,12 @@ async def owner_statement(
         prop_id_str = ownership["property_id"]
         try:
             prop = await db.properties.find_one({"_id": _obj_id(prop_id_str)})
-        except Exception:
+        except Exception as exc:
+            log.error(
+                "Failed to resolve property for owner statement",
+                property_id=prop_id_str,
+                error=str(exc),
+            )
             continue
         if not prop:
             continue
@@ -867,7 +917,11 @@ async def owner_statement(
 
         def _type_total(acct_type: str) -> float:
             return round(
-                sum(_compute_balance(r) for r in rows if r.get("account_type") == acct_type),
+                sum(
+                    _compute_balance(r)
+                    for r in rows
+                    if r.get("account_type") == acct_type
+                ),
                 2,
             )
 
@@ -879,7 +933,8 @@ async def owner_statement(
             sum(
                 _compute_balance(r)
                 for r in rows
-                if r.get("account_type") == "expense" and r.get("subtype") == "management_fee"
+                if r.get("account_type") == "expense"
+                and r.get("subtype") == "management_fee"
             ),
             2,
         )
@@ -902,7 +957,9 @@ async def owner_statement(
             {"$group": {"_id": None, "total": {"$sum": "$amount"}}},
         ]
         payments_agg = await db.payments.aggregate(payments_pipeline).to_list(1)
-        distributions = round(payments_agg[0]["total"] * pct / 100, 2) if payments_agg else 0.0
+        distributions = (
+            round(payments_agg[0]["total"] * pct / 100, 2) if payments_agg else 0.0
+        )
 
         total_income += owner_income
         total_management_fee += owner_mgmt_fee
@@ -911,29 +968,35 @@ async def owner_statement(
 
         # Line-level detail
         line_items = []
-        for r in sorted(rows, key=lambda x: (x.get("account_type", ""), x.get("account_code", ""))):
+        for r in sorted(
+            rows, key=lambda x: (x.get("account_type", ""), x.get("account_code", ""))
+        ):
             balance = _compute_balance(r)
             if balance == 0.0:
                 continue
-            line_items.append({
-                "account_code": r.get("account_code", ""),
-                "account_name": r.get("account_name", ""),
-                "account_type": r.get("account_type"),
-                "subtype": r.get("subtype"),
-                "amount": round(balance * pct / 100, 2),
-            })
+            line_items.append(
+                {
+                    "account_code": r.get("account_code", ""),
+                    "account_name": r.get("account_name", ""),
+                    "account_type": r.get("account_type"),
+                    "subtype": r.get("subtype"),
+                    "amount": round(balance * pct / 100, 2),
+                }
+            )
 
-        property_statements.append({
-            "property_id": prop_id_str,
-            "property_name": prop.get("name"),
-            "ownership_percentage": pct,
-            "gross_income": owner_income,
-            "management_fee": owner_mgmt_fee,
-            "total_expenses": owner_expenses,
-            "net_operating_income": owner_noi,
-            "distributions": distributions,
-            "line_items": line_items,
-        })
+        property_statements.append(
+            {
+                "property_id": prop_id_str,
+                "property_name": prop.get("name"),
+                "ownership_percentage": pct,
+                "gross_income": owner_income,
+                "management_fee": owner_mgmt_fee,
+                "total_expenses": owner_expenses,
+                "net_operating_income": owner_noi,
+                "distributions": distributions,
+                "line_items": line_items,
+            }
+        )
 
     return {
         "title": "Owner Statement",
@@ -948,7 +1011,9 @@ async def owner_statement(
             "total_expenses": round(total_expenses, 2),
             "total_net_income": round(total_income - total_expenses, 2),
             "total_distributions": round(total_distributions, 2),
-            "balance_due": round(total_income - total_expenses - total_distributions, 2),
+            "balance_due": round(
+                total_income - total_expenses - total_distributions, 2
+            ),
         },
         "properties": property_statements,
         "generated_at": datetime.now(timezone.utc).isoformat(),

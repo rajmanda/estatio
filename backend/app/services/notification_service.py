@@ -27,6 +27,16 @@ from app.core.config import settings
 from app.models.notification import NotificationDB, NotificationType
 
 log = structlog.get_logger(__name__)
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _start_background_task(coro):
+    """Start a background task and keep a reference to prevent GC."""
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return task
+
 
 # ---------------------------------------------------------------------------
 # SendGrid client (lazy, optional)
@@ -44,12 +54,15 @@ try:
     else:
         log.info("SENDGRID_API_KEY not set — email notifications will be logged only")
 except ImportError:
-    log.warning("sendgrid package not installed — email notifications will be logged only")
+    log.warning(
+        "sendgrid package not installed — email notifications will be logged only"
+    )
 
 
 # ---------------------------------------------------------------------------
 # Internal MongoDB helpers
 # ---------------------------------------------------------------------------
+
 
 def _notif_from_mongo(raw: Dict[str, Any]) -> NotificationDB:
     """Convert a raw MongoDB dict to a NotificationDB instance."""
@@ -60,6 +73,7 @@ def _notif_from_mongo(raw: Dict[str, Any]) -> NotificationDB:
 # ---------------------------------------------------------------------------
 # Core notification CRUD
 # ---------------------------------------------------------------------------
+
 
 async def create_notification(
     db: AsyncIOMotorDatabase,
@@ -75,14 +89,14 @@ async def create_notification(
     Create and persist a new in-app notification.
 
     Parameters:
-        db         – Motor async database handle
-        user_id    – Target user ID
-        type       – NotificationType enum value
-        title      – Short notification title
-        message    – Full notification message body
-        data       – Optional arbitrary payload dict (e.g. invoice_id, amount)
-        action_url – Optional deep-link URL for the notification CTA
-        priority   – "low" | "normal" | "high" | "urgent"
+        db         - Motor async database handle
+        user_id    - Target user ID
+        type       - NotificationType enum value
+        title      - Short notification title
+        message    - Full notification message body
+        data       - Optional arbitrary payload dict (e.g. invoice_id, amount)
+        action_url - Optional deep-link URL for the notification CTA
+        priority   - "low" | "normal" | "high" | "urgent"
 
     Returns:
         The persisted NotificationDB instance.
@@ -177,11 +191,11 @@ async def get_notifications(
     Retrieve notifications for a user, most recent first.
 
     Parameters:
-        db          – Motor async database handle
-        user_id     – Target user ID
-        unread_only – If True, return only unread notifications
-        skip        – Pagination offset
-        limit       – Maximum records to return
+        db          - Motor async database handle
+        user_id     - Target user ID
+        unread_only - If True, return only unread notifications
+        skip        - Pagination offset
+        limit       - Maximum records to return
 
     Returns:
         List of NotificationDB instances.
@@ -190,12 +204,7 @@ async def get_notifications(
     if unread_only:
         query["read"] = False
 
-    cursor = (
-        db.notifications.find(query)
-        .sort("created_at", -1)
-        .skip(skip)
-        .limit(limit)
-    )
+    cursor = db.notifications.find(query).sort("created_at", -1).skip(skip).limit(limit)
 
     results: List[NotificationDB] = []
     async for raw in cursor:
@@ -213,9 +222,7 @@ async def get_unread_count(
     """
     Return the count of unread notifications for a user.
     """
-    count = await db.notifications.count_documents(
-        {"user_id": user_id, "read": False}
-    )
+    count = await db.notifications.count_documents({"user_id": user_id, "read": False})
     return count
 
 
@@ -249,6 +256,7 @@ async def delete_notification(
 # Email notifications
 # ---------------------------------------------------------------------------
 
+
 async def send_email_notification(
     to_email: str,
     subject: str,
@@ -261,9 +269,9 @@ async def send_email_notification(
     the package is not installed.
 
     Parameters:
-        to_email  – Recipient email address
-        subject   – Email subject line
-        html_body – HTML email body content
+        to_email  - Recipient email address
+        subject   - Email subject line
+        html_body - HTML email body content
 
     Returns:
         True on success (or simulated success in fallback mode), False on error.
@@ -310,6 +318,7 @@ async def send_email_notification(
 # Email template helpers
 # ---------------------------------------------------------------------------
 
+
 def _invoice_created_html(invoice_number: str, amount: float, due_date: str) -> str:
     return f"""
 <html><body>
@@ -321,7 +330,9 @@ def _invoice_created_html(invoice_number: str, amount: float, due_date: str) -> 
 """
 
 
-def _payment_received_html(amount: float, invoice_number: str, payment_date: str) -> str:
+def _payment_received_html(
+    amount: float, invoice_number: str, payment_date: str
+) -> str:
     return f"""
 <html><body>
 <h2>Payment Received</h2>
@@ -347,6 +358,7 @@ def _work_order_update_html(work_order_number: str, message: str) -> str:
 # Domain-specific notification helpers
 # ---------------------------------------------------------------------------
 
+
 async def notify_invoice_created(
     db: AsyncIOMotorDatabase,
     invoice: Any,
@@ -356,8 +368,8 @@ async def notify_invoice_created(
     when a new invoice is created.
 
     Parameters:
-        db      – Motor async database handle
-        invoice – InvoiceDB instance (or dict) with at minimum:
+        db      - Motor async database handle
+        invoice - InvoiceDB instance (or dict) with at minimum:
                   owner_id, invoice_number, total_amount, due_date
     """
     # Support both dict and model instances
@@ -398,7 +410,7 @@ async def notify_invoice_created(
         owner = await db.users.find_one({"_id": ObjectId(owner_id)})
         if owner and owner.get("email"):
             html = _invoice_created_html(invoice_number, total_amount, due_date)
-            asyncio.create_task(
+            _start_background_task(
                 send_email_notification(
                     to_email=owner["email"],
                     subject=f"Invoice {invoice_number} — ${total_amount:,.2f} due {due_date}",
@@ -418,9 +430,9 @@ async def notify_payment_received(
     Notify the invoice owner when a payment is recorded.
 
     Parameters:
-        db      – Motor async database handle
-        payment – PaymentDB instance or dict with: owner_id, amount, payment_date
-        invoice – InvoiceDB instance or dict with: invoice_number, owner_id
+        db      - Motor async database handle
+        payment - PaymentDB instance or dict with: owner_id, amount, payment_date
+        invoice - InvoiceDB instance or dict with: invoice_number, owner_id
     """
     if hasattr(payment, "model_dump"):
         pmt = payment.model_dump()
@@ -465,7 +477,7 @@ async def notify_payment_received(
         owner = await db.users.find_one({"_id": ObjectId(owner_id)})
         if owner and owner.get("email"):
             html = _payment_received_html(amount, invoice_number, payment_date)
-            asyncio.create_task(
+            _start_background_task(
                 send_email_notification(
                     to_email=owner["email"],
                     subject=f"Payment Confirmed — ${amount:,.2f} for {invoice_number}",
@@ -488,9 +500,9 @@ async def notify_work_order_update(
     also creates a notification for the tenant.
 
     Parameters:
-        db         – Motor async database handle
-        work_order – WorkOrderDB instance or dict
-        message    – Human-readable status update message
+        db         - Motor async database handle
+        work_order - WorkOrderDB instance or dict
+        message    - Human-readable status update message
     """
     if hasattr(work_order, "model_dump"):
         wo = work_order.model_dump()
@@ -544,7 +556,7 @@ async def notify_work_order_update(
                         owner = await db.users.find_one({"_id": ObjectId(owner_id)})
                         if owner and owner.get("email"):
                             html = _work_order_update_html(wo_number, message)
-                            asyncio.create_task(
+                            _start_background_task(
                                 send_email_notification(
                                     to_email=owner["email"],
                                     subject=f"Work Order {wo_number} — {status.replace('_', ' ').title()}",
@@ -552,7 +564,10 @@ async def notify_work_order_update(
                                 )
                             )
                     except Exception as exc:
-                        log.warning("notify_work_order_update owner email failed", error=str(exc))
+                        log.warning(
+                            "notify_work_order_update owner email failed",
+                            error=str(exc),
+                        )
     except Exception as exc:
         log.warning("notify_work_order_update ownership lookup failed", error=str(exc))
 

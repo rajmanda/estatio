@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List, Dict, Any
-from datetime import datetime, date
+from datetime import date, datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class PropertyType(str, Enum):
@@ -87,6 +88,7 @@ class PropertyDB(BaseModel):
 
 class OwnershipDB(BaseModel):
     """Many-to-many join: owner ↔ property with metadata."""
+
     id: Optional[str] = Field(None, alias="_id")
     owner_id: str
     property_id: str

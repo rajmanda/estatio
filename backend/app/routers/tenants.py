@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from bson import ObjectId
 from datetime import datetime
 from typing import Optional
+
+from bson import ObjectId
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, EmailStr
+
 from app.core.auth import get_current_active_user, require_manager_or_admin
 from app.core.database import get_db
 
@@ -92,7 +94,9 @@ async def get_tenant_ledger(
     tenant = await db.tenants.find_one({"_id": ObjectId(tenant_id)})
     if not tenant:
         raise HTTPException(status_code=404, detail="Tenant not found")
-    entries = await db.journal_entries.find(
-        {"reference_id": tenant_id}
-    ).sort("date", -1).to_list(200)
+    entries = (
+        await db.journal_entries.find({"reference_id": tenant_id})
+        .sort("date", -1)
+        .to_list(200)
+    )
     return {"tenant_id": tenant_id, "ledger": [_serialize(e) for e in entries]}

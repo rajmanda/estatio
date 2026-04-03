@@ -37,10 +37,12 @@ router = APIRouter(prefix="/owners", tags=["owners"])
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _obj_id(raw_id: str) -> ObjectId:
     try:
         return ObjectId(raw_id)
-    except Exception:
+    except (ValueError, TypeError, Exception) as exc:
+        log.warning("Invalid ObjectId conversion", raw_id=raw_id, error=str(exc))
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid id: {raw_id}",
@@ -88,11 +90,15 @@ async def _resolve_owner(
 
     owner = await db.users.find_one({"_id": _obj_id(owner_id), "is_active": True})
     if not owner:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found"
+        )
     return owner
 
 
-async def _owner_property_ids(owner_id: str, db: AsyncIOMotorDatabase) -> List[ObjectId]:
+async def _owner_property_ids(
+    owner_id: str, db: AsyncIOMotorDatabase
+) -> List[ObjectId]:
     """Return a list of ObjectIds for properties owned by this owner."""
     cursor = db.ownerships.find({"owner_id": owner_id}, {"property_id": 1})
     return [_obj_id(o["property_id"]) async for o in cursor]
@@ -151,7 +157,9 @@ async def _financial_summary_for_property(
     revenue = totals.get("revenue", {})
     income = round(revenue.get("total_credit", 0) - revenue.get("total_debit", 0), 2)
     expense_row = totals.get("expense", {})
-    expenses = round(expense_row.get("total_debit", 0) - expense_row.get("total_credit", 0), 2)
+    expenses = round(
+        expense_row.get("total_debit", 0) - expense_row.get("total_credit", 0), 2
+    )
     noi = round(income - expenses, 2)
 
     return {"income": income, "expenses": expenses, "noi": noi}
@@ -160,6 +168,7 @@ async def _financial_summary_for_property(
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @router.get("/", summary="List all owners")
 async def list_owners(
@@ -204,7 +213,9 @@ async def get_owner(
 @router.get("/{owner_id}/portfolio", summary="Owner's full property portfolio")
 async def owner_portfolio(
     owner_id: str,
-    year: Optional[int] = Query(None, description="Financial year (defaults to current year)"),
+    year: Optional[int] = Query(
+        None, description="Financial year (defaults to current year)"
+    ),
     current_user: dict = Depends(get_current_active_user),
     db: AsyncIOMotorDatabase = Depends(get_db),
 ):
@@ -221,7 +232,12 @@ async def owner_portfolio(
         prop_id_str = ownership["property_id"]
         try:
             prop = await db.properties.find_one({"_id": _obj_id(prop_id_str)})
-        except Exception:
+        except Exception as exc:
+            log.error(
+                "Failed to resolve property for portfolio",
+                property_id=prop_id_str,
+                error=str(exc),
+            )
             continue
         if not prop:
             continue
@@ -257,8 +273,12 @@ async def owner_portfolio(
         portfolio.append(entry)
 
     # Aggregate totals
-    total_income = round(sum(p["owner_share_financials"]["income"] for p in portfolio), 2)
-    total_expenses = round(sum(p["owner_share_financials"]["expenses"] for p in portfolio), 2)
+    total_income = round(
+        sum(p["owner_share_financials"]["income"] for p in portfolio), 2
+    )
+    total_expenses = round(
+        sum(p["owner_share_financials"]["expenses"] for p in portfolio), 2
+    )
     total_noi = round(sum(p["owner_share_financials"]["noi"] for p in portfolio), 2)
 
     return {
@@ -291,10 +311,18 @@ async def owner_statements(
         query["year"] = year
 
     total = await db.owner_statements.count_documents(query)
-    cursor = db.owner_statements.find(query).sort("period_end", -1).skip(skip).limit(limit)
+    cursor = (
+        db.owner_statements.find(query).sort("period_end", -1).skip(skip).limit(limit)
+    )
     statements = [_serialize(s) async for s in cursor]
 
-    return {"owner_id": owner_id, "total": total, "skip": skip, "limit": limit, "data": statements}
+    return {
+        "owner_id": owner_id,
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "data": statements,
+    }
 
 
 @router.get("/{owner_id}/invoices", summary="Owner invoices")
@@ -320,7 +348,13 @@ async def owner_invoices(
     cursor = db.invoices.find(query).sort("due_date", -1).skip(skip).limit(limit)
     invoices = [_serialize(i) async for i in cursor]
 
-    return {"owner_id": owner_id, "total": total, "skip": skip, "limit": limit, "data": invoices}
+    return {
+        "owner_id": owner_id,
+        "total": total,
+        "skip": skip,
+        "limit": limit,
+        "data": invoices,
+    }
 
 
 @router.get("/{owner_id}/payments", summary="Owner payment history")
@@ -346,12 +380,16 @@ async def owner_payments(
         try:
             date_filter["$gte"] = datetime.fromisoformat(date_from)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date_from format. Use YYYY-MM-DD.")
+            raise HTTPException(
+                status_code=400, detail="Invalid date_from format. Use YYYY-MM-DD."
+            )
     if date_to:
         try:
             date_filter["$lte"] = datetime.fromisoformat(date_to)
         except ValueError:
-            raise HTTPException(status_code=400, detail="Invalid date_to format. Use YYYY-MM-DD.")
+            raise HTTPException(
+                status_code=400, detail="Invalid date_to format. Use YYYY-MM-DD."
+            )
     if date_filter:
         query["payment_date"] = date_filter
 
@@ -360,10 +398,12 @@ async def owner_payments(
     payments = [_serialize(p) async for p in cursor]
 
     # Aggregate total paid
-    agg = await db.payments.aggregate([
-        {"$match": query},
-        {"$group": {"_id": None, "total_paid": {"$sum": "$amount"}}},
-    ]).to_list(1)
+    agg = await db.payments.aggregate(
+        [
+            {"$match": query},
+            {"$group": {"_id": None, "total_paid": {"$sum": "$amount"}}},
+        ]
+    ).to_list(1)
     total_paid = round(agg[0]["total_paid"], 2) if agg else 0.0
 
     return {
@@ -376,7 +416,9 @@ async def owner_payments(
     }
 
 
-@router.get("/{owner_id}/maintenance", summary="Maintenance summary across all owner properties")
+@router.get(
+    "/{owner_id}/maintenance", summary="Maintenance summary across all owner properties"
+)
 async def owner_maintenance(
     owner_id: str,
     skip: int = Query(0, ge=0),
@@ -463,7 +505,12 @@ async def owner_dashboard(
         prop_id_str = ownership["property_id"]
         try:
             prop = await db.properties.find_one({"_id": _obj_id(prop_id_str)})
-        except Exception:
+        except Exception as exc:
+            log.error(
+                "Failed to resolve property for dashboard",
+                property_id=prop_id_str,
+                error=str(exc),
+            )
             continue
         if not prop:
             continue
@@ -481,27 +528,37 @@ async def owner_dashboard(
         total_units += len(units)
         occupied_units += occ
 
-        property_quick_stats.append({
-            "property_id": prop_id_str,
-            "name": prop.get("name"),
-            "status": prop.get("status"),
-            "ownership_percentage": pct,
-            "income": owner_income,
-            "expenses": owner_expenses,
-            "noi": round(owner_income - owner_expenses, 2),
-            "unit_count": len(units),
-            "occupancy_rate": round(occ / len(units) * 100, 1) if units else 0.0,
-        })
+        property_quick_stats.append(
+            {
+                "property_id": prop_id_str,
+                "name": prop.get("name"),
+                "status": prop.get("status"),
+                "ownership_percentage": pct,
+                "income": owner_income,
+                "expenses": owner_expenses,
+                "noi": round(owner_income - owner_expenses, 2),
+                "unit_count": len(units),
+                "occupancy_rate": round(occ / len(units) * 100, 1) if units else 0.0,
+            }
+        )
 
     portfolio_noi = round(portfolio_income - portfolio_expenses, 2)
-    overall_occupancy = round(occupied_units / total_units * 100, 1) if total_units else 0.0
+    overall_occupancy = (
+        round(occupied_units / total_units * 100, 1) if total_units else 0.0
+    )
 
     # ------------------------------------------------------------------
     # Invoices
     # ------------------------------------------------------------------
     pending_invoices_pipeline = [
         {"$match": {"owner_id": owner_id, "status": {"$in": ["pending", "overdue"]}}},
-        {"$group": {"_id": "$status", "count": {"$sum": 1}, "total": {"$sum": "$amount_due"}}},
+        {
+            "$group": {
+                "_id": "$status",
+                "count": {"$sum": 1},
+                "total": {"$sum": "$amount_due"},
+            }
+        },
     ]
     inv_agg = await db.invoices.aggregate(pending_invoices_pipeline).to_list(None)
     pending_count = sum(r["count"] for r in inv_agg)
@@ -528,16 +585,12 @@ async def owner_dashboard(
     # Recent activity (last 5 items per category)
     # ------------------------------------------------------------------
     recent_invoices_cursor = (
-        db.invoices.find({"owner_id": owner_id})
-        .sort("created_at", -1)
-        .limit(5)
+        db.invoices.find({"owner_id": owner_id}).sort("created_at", -1).limit(5)
     )
     recent_invoices = [_serialize(i) async for i in recent_invoices_cursor]
 
     recent_payments_cursor = (
-        db.payments.find({"owner_id": owner_id})
-        .sort("payment_date", -1)
-        .limit(5)
+        db.payments.find({"owner_id": owner_id}).sort("payment_date", -1).limit(5)
     )
     recent_payments = [_serialize(p) async for p in recent_payments_cursor]
 
@@ -553,17 +606,21 @@ async def owner_dashboard(
     # ------------------------------------------------------------------
     alerts = []
     if urgent_work_orders:
-        alerts.append({
-            "type": "urgent_maintenance",
-            "severity": "high",
-            "message": f"{urgent_work_orders} urgent/emergency work order(s) require attention.",
-        })
+        alerts.append(
+            {
+                "type": "urgent_maintenance",
+                "severity": "high",
+                "message": f"{urgent_work_orders} urgent/emergency work order(s) require attention.",
+            }
+        )
     if pending_count:
-        alerts.append({
-            "type": "pending_invoices",
-            "severity": "medium",
-            "message": f"{pending_count} invoice(s) pending payment totalling ${pending_amount:,.2f}.",
-        })
+        alerts.append(
+            {
+                "type": "pending_invoices",
+                "severity": "medium",
+                "message": f"{pending_count} invoice(s) pending payment totalling ${pending_amount:,.2f}.",
+            }
+        )
 
     return {
         "owner_id": owner_id,
@@ -573,7 +630,9 @@ async def owner_dashboard(
             "total_income": round(portfolio_income, 2),
             "total_expenses": round(portfolio_expenses, 2),
             "net_operating_income": portfolio_noi,
-            "noi_margin": round((portfolio_noi / portfolio_income * 100) if portfolio_income else 0.0, 2),
+            "noi_margin": round(
+                (portfolio_noi / portfolio_income * 100) if portfolio_income else 0.0, 2
+            ),
             "overall_occupancy_rate": overall_occupancy,
             "total_units": total_units,
             "occupied_units": occupied_units,

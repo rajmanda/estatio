@@ -55,6 +55,7 @@ router = APIRouter(prefix="/maintenance", tags=["maintenance"])
 # Request / Response schemas
 # ---------------------------------------------------------------------------
 
+
 class WorkOrderCreateRequest(BaseModel):
     property_id: str
     unit_id: Optional[str] = None
@@ -130,14 +131,21 @@ class PreventiveScheduleCreateRequest(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
-async def _get_work_order_or_404(db: AsyncIOMotorDatabase, work_order_id: str) -> Dict[str, Any]:
+
+async def _get_work_order_or_404(
+    db: AsyncIOMotorDatabase, work_order_id: str
+) -> Dict[str, Any]:
     """Fetch a work order by ID, raising 404 if not found."""
     try:
         raw = await db.work_orders.find_one({"_id": ObjectId(work_order_id)})
     except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid work order ID")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid work order ID"
+        )
     if not raw:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Work order not found"
+        )
     return raw
 
 
@@ -168,6 +176,7 @@ async def _next_wo_number(db: AsyncIOMotorDatabase) -> str:
 # ---------------------------------------------------------------------------
 # Endpoints
 # ---------------------------------------------------------------------------
+
 
 @router.get("/summary")
 async def get_maintenance_summary(
@@ -202,7 +211,12 @@ async def get_maintenance_summary(
         total_cost += float(row.get("total_cost", 0.0))
 
     priority_pipeline = [
-        {"$match": {**match_filter, "status": {"$nin": ["completed", "closed", "cancelled"]}}},
+        {
+            "$match": {
+                **match_filter,
+                "status": {"$nin": ["completed", "closed", "cancelled"]},
+            }
+        },
         {"$group": {"_id": "$priority", "count": {"$sum": 1}}},
     ]
     priority_counts: Dict[str, int] = {}
@@ -232,7 +246,8 @@ async def get_maintenance_summary(
         )
 
     total_open = sum(
-        v for k, v in status_counts.items()
+        v
+        for k, v in status_counts.items()
         if k not in ("completed", "closed", "cancelled")
     )
 
@@ -345,12 +360,7 @@ async def list_work_orders(
     if assigned_vendor_id:
         query["assigned_vendor_id"] = assigned_vendor_id
 
-    cursor = (
-        db.work_orders.find(query)
-        .sort("created_at", -1)
-        .skip(skip)
-        .limit(limit)
-    )
+    cursor = db.work_orders.find(query).sort("created_at", -1).skip(skip).limit(limit)
 
     results = []
     async for raw in cursor:
@@ -496,7 +506,9 @@ async def update_work_order_status(
 
     # Re-fetch and notify
     updated_raw = await db.work_orders.find_one({"_id": ObjectId(work_order_id)})
-    msg = body.note or f"Status updated to {body.status.value.replace('_', ' ').title()}."
+    msg = (
+        body.note or f"Status updated to {body.status.value.replace('_', ' ').title()}."
+    )
     background_tasks.add_task(notify_work_order_update, db, updated_raw, msg)
 
     return _wo_to_response(updated_raw)

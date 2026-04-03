@@ -11,11 +11,11 @@ Responsibilities:
   - Provide aggregate maintenance statistics per property / owner
 
 MongoDB collections used:
-  work_orders                 – WorkOrderDB
-  preventive_maintenance      – PreventiveMaintenanceDB
-  vendors                     – VendorDB
-  notifications               – NotificationDB
-  ownerships                  – OwnershipDB (to resolve property → owner)
+  work_orders                 - WorkOrderDB
+  preventive_maintenance      - PreventiveMaintenanceDB
+  vendors                     - VendorDB
+  notifications               - NotificationDB
+  ownerships                  - OwnershipDB (to resolve property → owner)
 """
 
 from __future__ import annotations
@@ -40,6 +40,7 @@ log = structlog.get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _new_id() -> str:
     return str(ObjectId())
@@ -116,7 +117,7 @@ _ALLOWED_TRANSITIONS: Dict[WorkOrderStatus, List[WorkOrderStatus]] = {
     ],
     WorkOrderStatus.TRIAGED: [
         WorkOrderStatus.ESTIMATE_REQUESTED,
-        WorkOrderStatus.APPROVED,       # manager can skip estimates
+        WorkOrderStatus.APPROVED,  # manager can skip estimates
         WorkOrderStatus.CANCELLED,
     ],
     WorkOrderStatus.ESTIMATE_REQUESTED: [
@@ -162,6 +163,7 @@ _ALLOWED_TRANSITIONS: Dict[WorkOrderStatus, List[WorkOrderStatus]] = {
 # Create work order
 # ---------------------------------------------------------------------------
 
+
 async def create_work_order(
     db: AsyncIOMotorDatabase,
     wo_data: Dict[str, Any],
@@ -170,18 +172,18 @@ async def create_work_order(
     Create a new work order.
 
     ``wo_data`` keys:
-        property_id     – str (required)
-        title           – str (required)
-        description     – str (required)
-        category        – WorkOrderCategory value (required)
-        priority        – WorkOrderPriority value (default: MEDIUM)
-        reported_by     – str user_id (required)
-        reported_by_type– str (tenant | owner | manager | system)
-        unit_id         – str (optional)
-        images          – list of str GCS paths (optional)
-        notes           – str (optional)
-        is_recurring    – bool (optional)
-        preventive_schedule_id – str (optional)
+        property_id     - str (required)
+        title           - str (required)
+        description     - str (required)
+        category        - WorkOrderCategory value (required)
+        priority        - WorkOrderPriority value (default: MEDIUM)
+        reported_by     - str user_id (required)
+        reported_by_type- str (tenant | owner | manager | system)
+        unit_id         - str (optional)
+        images          - list of str GCS paths (optional)
+        notes           - str (optional)
+        is_recurring    - bool (optional)
+        preventive_schedule_id - str (optional)
 
     Effects:
       - Auto-generates work_order_number (WO-{YEAR}-{SEQ:06d})
@@ -264,7 +266,9 @@ async def create_work_order(
                 "priority": priority_str,
             },
             action_url=f"/maintenance/{wo_id}",
-            priority="high" if priority_str == WorkOrderPriority.EMERGENCY.value else "normal",
+            priority="high"
+            if priority_str == WorkOrderPriority.EMERGENCY.value
+            else "normal",
         )
         for owner_id in owner_ids
     ]
@@ -283,6 +287,7 @@ async def create_work_order(
 # ---------------------------------------------------------------------------
 # Update work order status
 # ---------------------------------------------------------------------------
+
 
 async def update_work_order_status(
     db: AsyncIOMotorDatabase,
@@ -350,7 +355,7 @@ async def update_work_order_status(
                 db,
                 user_id=oid,
                 notif_type="maintenance_updated",
-                title=f"Work Order {wo['work_order_number']} – {new_status.value.replace('_', ' ').title()}",
+                title=f"Work Order {wo['work_order_number']} - {new_status.value.replace('_', ' ').title()}",
                 message=(
                     f"Work order {wo['work_order_number']} ({wo['title']}) "
                     f"has been updated to {new_status.value.replace('_', ' ')}."
@@ -383,6 +388,7 @@ async def update_work_order_status(
 # ---------------------------------------------------------------------------
 # Request estimates
 # ---------------------------------------------------------------------------
+
 
 async def request_estimates(
     db: AsyncIOMotorDatabase,
@@ -446,7 +452,7 @@ async def request_estimates(
                     db,
                     user_id=portal_user_id,
                     notif_type="vendor_estimate",
-                    title=f"Estimate Request – {wo['work_order_number']}",
+                    title=f"Estimate Request - {wo['work_order_number']}",
                     message=(
                         f"You have been asked to submit an estimate for work order "
                         f"{wo['work_order_number']}: {wo['title']}."
@@ -500,6 +506,7 @@ async def request_estimates(
 # Select estimate
 # ---------------------------------------------------------------------------
 
+
 async def select_estimate(
     db: AsyncIOMotorDatabase,
     wo_id: str,
@@ -537,7 +544,7 @@ async def select_estimate(
         "changed_at": now,
         "changed_by": "system",
         "note": f"Estimate selected from vendor {selected.get('vendor_name', vendor_id)} "
-                f"(${selected.get('total_amount', 0):.2f})",
+        f"(${selected.get('total_amount', 0):.2f})",
     }
 
     await db.work_orders.update_one(
@@ -561,7 +568,7 @@ async def select_estimate(
             db,
             user_id=oid,
             notif_type="maintenance_updated",
-            title=f"Approval Required – {wo['work_order_number']}",
+            title=f"Approval Required - {wo['work_order_number']}",
             message=(
                 f"An estimate of ${selected.get('total_amount', 0):.2f} from "
                 f"{selected.get('vendor_name', 'a vendor')} is awaiting your approval "
@@ -597,6 +604,7 @@ async def select_estimate(
 # Approve work order
 # ---------------------------------------------------------------------------
 
+
 async def approve_work_order(
     db: AsyncIOMotorDatabase,
     wo_id: str,
@@ -616,9 +624,7 @@ async def approve_work_order(
 
     current = WorkOrderStatus(wo["status"])
     if WorkOrderStatus.APPROVED not in _ALLOWED_TRANSITIONS.get(current, []):
-        raise ValueError(
-            f"Cannot approve work order in status '{current.value}'."
-        )
+        raise ValueError(f"Cannot approve work order in status '{current.value}'.")
 
     now = datetime.utcnow()
     approved_amount = _round2(float(approved_amount))
@@ -652,7 +658,7 @@ async def approve_work_order(
                 db,
                 user_id=vendor["portal_user_id"],
                 notif_type="maintenance_updated",
-                title=f"Work Order Approved – {wo['work_order_number']}",
+                title=f"Work Order Approved - {wo['work_order_number']}",
                 message=(
                     f"Work order {wo['work_order_number']} ({wo['title']}) has been "
                     f"approved for up to ${approved_amount:.2f}. You may now schedule the work."
@@ -683,6 +689,7 @@ async def approve_work_order(
 # Complete work order
 # ---------------------------------------------------------------------------
 
+
 async def complete_work_order(
     db: AsyncIOMotorDatabase,
     wo_id: str,
@@ -704,9 +711,7 @@ async def complete_work_order(
 
     current = WorkOrderStatus(wo["status"])
     if WorkOrderStatus.COMPLETED not in _ALLOWED_TRANSITIONS.get(current, []):
-        raise ValueError(
-            f"Cannot complete work order in status '{current.value}'."
-        )
+        raise ValueError(f"Cannot complete work order in status '{current.value}'.")
 
     actual_cost = _round2(float(actual_cost))
     now = datetime.utcnow()
@@ -747,7 +752,9 @@ async def complete_work_order(
             WorkOrderCategory.LANDSCAPING.value: "5050",
         }
         expense_code = category_code_map.get(category, "5000")
-        expense_account = await db.accounts.find_one({"code": expense_code}) or maintenance_account
+        expense_account = (
+            await db.accounts.find_one({"code": expense_code}) or maintenance_account
+        )
 
         try:
             je = await create_journal_entry(
@@ -755,7 +762,7 @@ async def complete_work_order(
                 {
                     "date": completed_date,
                     "description": (
-                        f"Maintenance expense – {wo['work_order_number']} – {wo['title']}"
+                        f"Maintenance expense - {wo['work_order_number']} - {wo['title']}"
                     ),
                     "entry_type": "expense",
                     "lines": [
@@ -798,7 +805,7 @@ async def complete_work_order(
             db,
             user_id=oid,
             notif_type="maintenance_completed",
-            title=f"Work Order Completed – {wo['work_order_number']}",
+            title=f"Work Order Completed - {wo['work_order_number']}",
             message=(
                 f"Work order {wo['work_order_number']} ({wo['title']}) has been completed. "
                 f"Final cost: ${actual_cost:.2f}."
@@ -830,6 +837,7 @@ async def complete_work_order(
 # ---------------------------------------------------------------------------
 # Run preventive maintenance
 # ---------------------------------------------------------------------------
+
 
 async def run_preventive_maintenance(db: AsyncIOMotorDatabase) -> Dict[str, Any]:
     """
@@ -889,34 +897,57 @@ async def run_preventive_maintenance(db: AsyncIOMotorDatabase) -> Dict[str, Any]
                 year = current_due.year + (month - 1) // 12
                 month = ((month - 1) % 12) + 1
                 try:
-                    next_due = date(year, month, pm.get("day_of_month", current_due.day))
+                    next_due = date(
+                        year, month, pm.get("day_of_month", current_due.day)
+                    )
                 except ValueError:
                     # Handle months with fewer days
                     import calendar
+
                     max_day = calendar.monthrange(year, month)[1]
-                    next_due = date(year, month, min(pm.get("day_of_month", current_due.day), max_day))
+                    next_due = date(
+                        year,
+                        month,
+                        min(pm.get("day_of_month", current_due.day), max_day),
+                    )
             elif frequency == "quarterly":
                 month = current_due.month + 3
                 year = current_due.year + (month - 1) // 12
                 month = ((month - 1) % 12) + 1
                 try:
-                    next_due = date(year, month, pm.get("day_of_month", current_due.day))
+                    next_due = date(
+                        year, month, pm.get("day_of_month", current_due.day)
+                    )
                 except ValueError:
                     import calendar
+
                     max_day = calendar.monthrange(year, month)[1]
-                    next_due = date(year, month, min(pm.get("day_of_month", current_due.day), max_day))
+                    next_due = date(
+                        year,
+                        month,
+                        min(pm.get("day_of_month", current_due.day), max_day),
+                    )
             elif frequency == "semi-annual":
                 month = current_due.month + 6
                 year = current_due.year + (month - 1) // 12
                 month = ((month - 1) % 12) + 1
                 try:
-                    next_due = date(year, month, pm.get("day_of_month", current_due.day))
+                    next_due = date(
+                        year, month, pm.get("day_of_month", current_due.day)
+                    )
                 except ValueError:
                     import calendar
+
                     max_day = calendar.monthrange(year, month)[1]
-                    next_due = date(year, month, min(pm.get("day_of_month", current_due.day), max_day))
+                    next_due = date(
+                        year,
+                        month,
+                        min(pm.get("day_of_month", current_due.day), max_day),
+                    )
             elif frequency == "annual":
-                next_due = date(current_due.year + 1, current_due.month, current_due.day)
+                next_due = date(
+                    current_due.year + 1, current_due.month, current_due.day
+                )
             else:
                 next_due = current_due + timedelta(days=30)
 
@@ -946,13 +977,16 @@ async def run_preventive_maintenance(db: AsyncIOMotorDatabase) -> Dict[str, Any]
             )
             errors.append({"pm_id": pm_id, "error": str(exc)})
 
-    logger.info("Preventive maintenance run complete", created=created, errors=len(errors))
+    logger.info(
+        "Preventive maintenance run complete", created=created, errors=len(errors)
+    )
     return {"created": created, "errors": errors}
 
 
 # ---------------------------------------------------------------------------
 # Get maintenance summary
 # ---------------------------------------------------------------------------
+
 
 async def get_maintenance_summary(
     db: AsyncIOMotorDatabase,
@@ -1071,7 +1105,11 @@ async def get_maintenance_summary(
     # Average resolution days (SUBMITTED → COMPLETED)
     avg_resolution_days: Optional[float] = None
     completed_wo = await db.work_orders.find(
-        {**match, "status": WorkOrderStatus.COMPLETED.value, "completed_date": {"$exists": True}},
+        {
+            **match,
+            "status": WorkOrderStatus.COMPLETED.value,
+            "completed_date": {"$exists": True},
+        },
         {"created_at": 1, "completed_date": 1},
     ).to_list(200)
 

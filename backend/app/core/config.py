@@ -1,7 +1,8 @@
-from pydantic_settings import BaseSettings
-from pydantic import field_validator
-from typing import List, Optional
 import json
+from typing import List, Optional
+
+from pydantic import field_validator
+from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
@@ -56,7 +57,7 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             try:
                 return json.loads(v)
-            except Exception:
+            except (json.JSONDecodeError, TypeError, ValueError):
                 return [v]
         return v
 

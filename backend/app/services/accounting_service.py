@@ -11,9 +11,9 @@ Responsibilities:
   - Seed the standard Chart of Accounts for property management
 
 MongoDB collections used:
-  accounts          – Chart of Accounts (AccountDB)
-  journal_entries   – Double-entry journal entries (JournalEntryDB)
-  ledger_balances   – Materialized period balances (LedgerBalanceDB)
+  accounts          - Chart of Accounts (AccountDB)
+  journal_entries   - Double-entry journal entries (JournalEntryDB)
+  ledger_balances   - Materialized period balances (LedgerBalanceDB)
 """
 
 from __future__ import annotations
@@ -37,6 +37,7 @@ log = structlog.get_logger(__name__)
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _new_id() -> str:
     return str(ObjectId())
@@ -78,74 +79,262 @@ def _account_normal_balance(account_type: AccountType) -> str:
 
 # Standard property-management CoA entries:
 # (code, name, account_type, subtype, parent_code, description)
-_STANDARD_COA: List[Tuple[str, str, AccountType, AccountSubtype, Optional[str], str]] = [
+_STANDARD_COA: List[
+    Tuple[str, str, AccountType, AccountSubtype, Optional[str], str]
+] = [
     # ── Assets ──────────────────────────────────────────────────────────────
-    ("1000", "Cash and Cash Equivalents", AccountType.ASSET, AccountSubtype.CASH, None,
-     "Primary operating cash accounts"),
-    ("1010", "Operating Checking", AccountType.ASSET, AccountSubtype.BANK, "1000",
-     "Main bank checking account"),
-    ("1020", "Security Deposit Trust Account", AccountType.ASSET, AccountSubtype.BANK, "1000",
-     "Tenant security deposit escrow"),
-    ("1100", "Accounts Receivable", AccountType.ASSET, AccountSubtype.ACCOUNTS_RECEIVABLE, None,
-     "Amounts owed by owners / tenants"),
-    ("1200", "Prepaid Expenses", AccountType.ASSET, AccountSubtype.PREPAID, None,
-     "Insurance and other prepaid costs"),
-    ("1500", "Fixed Assets", AccountType.ASSET, AccountSubtype.FIXED_ASSET, None,
-     "Long-lived property assets"),
+    (
+        "1000",
+        "Cash and Cash Equivalents",
+        AccountType.ASSET,
+        AccountSubtype.CASH,
+        None,
+        "Primary operating cash accounts",
+    ),
+    (
+        "1010",
+        "Operating Checking",
+        AccountType.ASSET,
+        AccountSubtype.BANK,
+        "1000",
+        "Main bank checking account",
+    ),
+    (
+        "1020",
+        "Security Deposit Trust Account",
+        AccountType.ASSET,
+        AccountSubtype.BANK,
+        "1000",
+        "Tenant security deposit escrow",
+    ),
+    (
+        "1100",
+        "Accounts Receivable",
+        AccountType.ASSET,
+        AccountSubtype.ACCOUNTS_RECEIVABLE,
+        None,
+        "Amounts owed by owners / tenants",
+    ),
+    (
+        "1200",
+        "Prepaid Expenses",
+        AccountType.ASSET,
+        AccountSubtype.PREPAID,
+        None,
+        "Insurance and other prepaid costs",
+    ),
+    (
+        "1500",
+        "Fixed Assets",
+        AccountType.ASSET,
+        AccountSubtype.FIXED_ASSET,
+        None,
+        "Long-lived property assets",
+    ),
     # ── Liabilities ─────────────────────────────────────────────────────────
-    ("2000", "Accounts Payable", AccountType.LIABILITY, AccountSubtype.ACCOUNTS_PAYABLE, None,
-     "Amounts owed to vendors"),
-    ("2100", "Accrued Liabilities", AccountType.LIABILITY, AccountSubtype.ACCRUED_LIABILITY, None,
-     "Accrued but unpaid expenses"),
-    ("2200", "Security Deposits Held", AccountType.LIABILITY, AccountSubtype.SECURITY_DEPOSIT, None,
-     "Tenant security deposits payable"),
-    ("2300", "Owner Distributions Payable", AccountType.LIABILITY, AccountSubtype.ACCRUED_LIABILITY, None,
-     "Net proceeds payable to owners"),
+    (
+        "2000",
+        "Accounts Payable",
+        AccountType.LIABILITY,
+        AccountSubtype.ACCOUNTS_PAYABLE,
+        None,
+        "Amounts owed to vendors",
+    ),
+    (
+        "2100",
+        "Accrued Liabilities",
+        AccountType.LIABILITY,
+        AccountSubtype.ACCRUED_LIABILITY,
+        None,
+        "Accrued but unpaid expenses",
+    ),
+    (
+        "2200",
+        "Security Deposits Held",
+        AccountType.LIABILITY,
+        AccountSubtype.SECURITY_DEPOSIT,
+        None,
+        "Tenant security deposits payable",
+    ),
+    (
+        "2300",
+        "Owner Distributions Payable",
+        AccountType.LIABILITY,
+        AccountSubtype.ACCRUED_LIABILITY,
+        None,
+        "Net proceeds payable to owners",
+    ),
     # ── Equity ──────────────────────────────────────────────────────────────
-    ("3000", "Owner Equity", AccountType.EQUITY, AccountSubtype.OWNER_EQUITY, None,
-     "Accumulated owner equity"),
-    ("3100", "Retained Earnings", AccountType.EQUITY, AccountSubtype.RETAINED_EARNINGS, None,
-     "Accumulated retained earnings"),
+    (
+        "3000",
+        "Owner Equity",
+        AccountType.EQUITY,
+        AccountSubtype.OWNER_EQUITY,
+        None,
+        "Accumulated owner equity",
+    ),
+    (
+        "3100",
+        "Retained Earnings",
+        AccountType.EQUITY,
+        AccountSubtype.RETAINED_EARNINGS,
+        None,
+        "Accumulated retained earnings",
+    ),
     # ── Revenue ─────────────────────────────────────────────────────────────
-    ("4000", "Rental Income", AccountType.REVENUE, AccountSubtype.RENT_INCOME, None,
-     "Gross rental revenue"),
-    ("4100", "Management Fee Income", AccountType.REVENUE, AccountSubtype.MANAGEMENT_FEE, None,
-     "Property management fees collected"),
-    ("4200", "Late Fee Income", AccountType.REVENUE, AccountSubtype.LATE_FEE, None,
-     "Late payment fees charged to owners"),
-    ("4300", "Other Income", AccountType.REVENUE, AccountSubtype.OTHER_INCOME, None,
-     "Miscellaneous income"),
+    (
+        "4000",
+        "Rental Income",
+        AccountType.REVENUE,
+        AccountSubtype.RENT_INCOME,
+        None,
+        "Gross rental revenue",
+    ),
+    (
+        "4100",
+        "Management Fee Income",
+        AccountType.REVENUE,
+        AccountSubtype.MANAGEMENT_FEE,
+        None,
+        "Property management fees collected",
+    ),
+    (
+        "4200",
+        "Late Fee Income",
+        AccountType.REVENUE,
+        AccountSubtype.LATE_FEE,
+        None,
+        "Late payment fees charged to owners",
+    ),
+    (
+        "4300",
+        "Other Income",
+        AccountType.REVENUE,
+        AccountSubtype.OTHER_INCOME,
+        None,
+        "Miscellaneous income",
+    ),
     # ── Expenses ────────────────────────────────────────────────────────────
-    ("5000", "Maintenance and Repairs", AccountType.EXPENSE, AccountSubtype.MAINTENANCE, None,
-     "Repairs, maintenance, and work orders"),
-    ("5010", "HVAC", AccountType.EXPENSE, AccountSubtype.MAINTENANCE, "5000",
-     "Heating, ventilation, and air conditioning"),
-    ("5020", "Plumbing", AccountType.EXPENSE, AccountSubtype.MAINTENANCE, "5000",
-     "Plumbing repairs"),
-    ("5030", "Electrical", AccountType.EXPENSE, AccountSubtype.MAINTENANCE, "5000",
-     "Electrical work"),
-    ("5040", "Appliances", AccountType.EXPENSE, AccountSubtype.MAINTENANCE, "5000",
-     "Appliance repairs and replacements"),
-    ("5050", "Landscaping", AccountType.EXPENSE, AccountSubtype.MAINTENANCE, "5000",
-     "Grounds and landscaping"),
-    ("5100", "Utilities", AccountType.EXPENSE, AccountSubtype.UTILITIES, None,
-     "Water, gas, electric, trash"),
-    ("5200", "Insurance", AccountType.EXPENSE, AccountSubtype.INSURANCE, None,
-     "Property and liability insurance"),
-    ("5300", "HOA Fees", AccountType.EXPENSE, AccountSubtype.HOA, None,
-     "Homeowners association dues"),
-    ("5400", "Mortgage / Loan Interest", AccountType.EXPENSE, AccountSubtype.MORTGAGE, None,
-     "Interest portion of mortgage payments"),
-    ("5500", "Property Taxes", AccountType.EXPENSE, AccountSubtype.TAX, None,
-     "Annual property taxes"),
-    ("5600", "Management Fees Paid", AccountType.EXPENSE, AccountSubtype.MANAGEMENT_EXPENSE, None,
-     "Fees paid to property manager (owner's view)"),
-    ("5700", "Contractor Expenses", AccountType.EXPENSE, AccountSubtype.CONTRACTOR, None,
-     "1099 contractor payments"),
-    ("5800", "Advertising and Marketing", AccountType.EXPENSE, AccountSubtype.ADVERTISING, None,
-     "Listing fees, marketing, photography"),
-    ("5900", "Other Expenses", AccountType.EXPENSE, AccountSubtype.OTHER_EXPENSE, None,
-     "Miscellaneous property expenses"),
+    (
+        "5000",
+        "Maintenance and Repairs",
+        AccountType.EXPENSE,
+        AccountSubtype.MAINTENANCE,
+        None,
+        "Repairs, maintenance, and work orders",
+    ),
+    (
+        "5010",
+        "HVAC",
+        AccountType.EXPENSE,
+        AccountSubtype.MAINTENANCE,
+        "5000",
+        "Heating, ventilation, and air conditioning",
+    ),
+    (
+        "5020",
+        "Plumbing",
+        AccountType.EXPENSE,
+        AccountSubtype.MAINTENANCE,
+        "5000",
+        "Plumbing repairs",
+    ),
+    (
+        "5030",
+        "Electrical",
+        AccountType.EXPENSE,
+        AccountSubtype.MAINTENANCE,
+        "5000",
+        "Electrical work",
+    ),
+    (
+        "5040",
+        "Appliances",
+        AccountType.EXPENSE,
+        AccountSubtype.MAINTENANCE,
+        "5000",
+        "Appliance repairs and replacements",
+    ),
+    (
+        "5050",
+        "Landscaping",
+        AccountType.EXPENSE,
+        AccountSubtype.MAINTENANCE,
+        "5000",
+        "Grounds and landscaping",
+    ),
+    (
+        "5100",
+        "Utilities",
+        AccountType.EXPENSE,
+        AccountSubtype.UTILITIES,
+        None,
+        "Water, gas, electric, trash",
+    ),
+    (
+        "5200",
+        "Insurance",
+        AccountType.EXPENSE,
+        AccountSubtype.INSURANCE,
+        None,
+        "Property and liability insurance",
+    ),
+    (
+        "5300",
+        "HOA Fees",
+        AccountType.EXPENSE,
+        AccountSubtype.HOA,
+        None,
+        "Homeowners association dues",
+    ),
+    (
+        "5400",
+        "Mortgage / Loan Interest",
+        AccountType.EXPENSE,
+        AccountSubtype.MORTGAGE,
+        None,
+        "Interest portion of mortgage payments",
+    ),
+    (
+        "5500",
+        "Property Taxes",
+        AccountType.EXPENSE,
+        AccountSubtype.TAX,
+        None,
+        "Annual property taxes",
+    ),
+    (
+        "5600",
+        "Management Fees Paid",
+        AccountType.EXPENSE,
+        AccountSubtype.MANAGEMENT_EXPENSE,
+        None,
+        "Fees paid to property manager (owner's view)",
+    ),
+    (
+        "5700",
+        "Contractor Expenses",
+        AccountType.EXPENSE,
+        AccountSubtype.CONTRACTOR,
+        None,
+        "1099 contractor payments",
+    ),
+    (
+        "5800",
+        "Advertising and Marketing",
+        AccountType.EXPENSE,
+        AccountSubtype.ADVERTISING,
+        None,
+        "Listing fees, marketing, photography",
+    ),
+    (
+        "5900",
+        "Other Expenses",
+        AccountType.EXPENSE,
+        AccountSubtype.OTHER_EXPENSE,
+        None,
+        "Miscellaneous property expenses",
+    ),
 ]
 
 
@@ -211,6 +400,7 @@ async def seed_chart_of_accounts(db: AsyncIOMotorDatabase) -> Dict[str, Any]:
 # Journal entry creation
 # ---------------------------------------------------------------------------
 
+
 async def create_journal_entry(
     db: AsyncIOMotorDatabase,
     entry_data: Dict[str, Any],
@@ -219,22 +409,24 @@ async def create_journal_entry(
     Create a balanced double-entry journal entry and update ledger balances.
 
     ``entry_data`` keys (all required unless noted):
-        date          – ISO date string or date object
-        description   – str
-        entry_type    – str (rent | invoice | payment | expense | adjustment | opening)
-        lines         – list of dicts with keys:
+        date          - ISO date string or date object
+        description   - str
+        entry_type    - str (rent | invoice | payment | expense | adjustment | opening)
+        lines         - list of dicts with keys:
                           account_id, account_code, account_name,
                           debit (float, default 0), credit (float, default 0),
                           description (optional), property_id (optional)
-        created_by    – str (user_id)
-        reference_id  – str (optional)
-        reference_type– str (optional)
-        property_id   – str (optional)
+        created_by    - str (user_id)
+        reference_id  - str (optional)
+        reference_type- str (optional)
+        property_id   - str (optional)
 
     Raises:
-        ValueError – if debits != credits (within $0.01 tolerance)
+        ValueError - if debits != credits (within $0.01 tolerance)
     """
-    logger = log.bind(action="create_journal_entry", entry_type=entry_data.get("entry_type"))
+    logger = log.bind(
+        action="create_journal_entry", entry_type=entry_data.get("entry_type")
+    )
 
     # Normalise date
     raw_date = entry_data.get("date", date.today())
@@ -316,6 +508,7 @@ async def create_journal_entry(
 # Ledger balance maintenance
 # ---------------------------------------------------------------------------
 
+
 async def update_ledger_balance(
     db: AsyncIOMotorDatabase,
     account_id: str,
@@ -329,7 +522,7 @@ async def update_ledger_balance(
     Upsert the LedgerBalance materialised document for a given account / period.
 
     The closing_balance is computed as:
-        opening_balance + total_debits – total_credits
+        opening_balance + total_debits - total_credits
     (i.e., it follows the debit-normal convention; callers convert as needed).
     """
     filter_doc: Dict[str, Any] = {
@@ -393,6 +586,7 @@ async def update_ledger_balance(
 # Trial balance
 # ---------------------------------------------------------------------------
 
+
 async def get_trial_balance(
     db: AsyncIOMotorDatabase,
     property_id: Optional[str] = None,
@@ -417,7 +611,7 @@ async def get_trial_balance(
                     "normal_balance": ...,
                     "total_debits": ...,
                     "total_credits": ...,
-                    "net_balance": ...,   # debits – credits (debit-normal)
+                    "net_balance": ...,   # debits - credits (debit-normal)
                 }
             ],
             "total_debits": ...,
@@ -493,6 +687,7 @@ async def get_trial_balance(
 # Income statement  (P&L)
 # ---------------------------------------------------------------------------
 
+
 async def get_income_statement(
     db: AsyncIOMotorDatabase,
     start_date: date,
@@ -522,7 +717,11 @@ async def get_income_statement(
     # Retrieve all revenue/expense accounts.
     rev_exp_accounts: Dict[str, Dict[str, Any]] = {}
     async for acc in db.accounts.find(
-        {"account_type": {"$in": [AccountType.REVENUE.value, AccountType.EXPENSE.value]}}
+        {
+            "account_type": {
+                "$in": [AccountType.REVENUE.value, AccountType.EXPENSE.value]
+            }
+        }
     ):
         rev_exp_accounts[str(acc["_id"])] = acc
 
@@ -561,8 +760,8 @@ async def get_income_statement(
 
         td = _round2(row["total_debits"])
         tc = _round2(row["total_credits"])
-        # Revenue: credit-normal → net = credits – debits
-        # Expense: debit-normal → net = debits – credits
+        # Revenue: credit-normal → net = credits - debits
+        # Expense: debit-normal → net = debits - credits
         if acc["account_type"] == AccountType.REVENUE.value:
             net = _round2(tc - td)
             revenue_rows.append(
@@ -605,6 +804,7 @@ async def get_income_statement(
 # ---------------------------------------------------------------------------
 # Balance sheet
 # ---------------------------------------------------------------------------
+
 
 async def get_balance_sheet(
     db: AsyncIOMotorDatabase,
@@ -701,6 +901,7 @@ async def get_balance_sheet(
 # Cash-flow statement
 # ---------------------------------------------------------------------------
 
+
 async def get_cash_flow(
     db: AsyncIOMotorDatabase,
     start_date: date,
@@ -782,7 +983,7 @@ async def get_cash_flow(
                 "account_code": row["_id"].get("account_code", ""),
                 "account_name": row["_id"].get("account_name", ""),
                 "entry_type": row["_id"].get("entry_type", ""),
-                "inflow": tc,   # credits to cash = money coming in
+                "inflow": tc,  # credits to cash = money coming in
                 "outflow": td,  # debits to cash = money going out
                 "net": _round2(tc - td),
             }
@@ -808,6 +1009,7 @@ async def get_cash_flow(
 # ---------------------------------------------------------------------------
 # Owner statement
 # ---------------------------------------------------------------------------
+
 
 async def get_owner_statement(
     db: AsyncIOMotorDatabase,

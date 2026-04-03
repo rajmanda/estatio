@@ -41,6 +41,15 @@ log = structlog.get_logger(__name__)
 
 _gcs_client = None
 _GCS_AVAILABLE = False
+_background_tasks: set[asyncio.Task] = set()
+
+
+def _start_background_task(coro):
+    """Start a background task and keep a reference to prevent GC."""
+    task = asyncio.create_task(coro)
+    _background_tasks.add(task)
+    task.add_done_callback(_background_tasks.discard)
+    return task
 
 
 def _get_gcs_client():
@@ -105,6 +114,7 @@ def _build_gcs_path(
 # GCS sync helpers (run inside executor)
 # ---------------------------------------------------------------------------
 
+
 def _sync_upload_blob(
     bucket_name: str,
     gcs_path: str,
@@ -141,7 +151,6 @@ def _sync_generate_signed_url(
 def _sync_delete_blob(bucket_name: str, gcs_path: str) -> bool:
     """Delete a GCS object (sync — must be called via run_in_executor)."""
     try:
-
         client = _get_gcs_client()
         bucket = client.bucket(bucket_name)
         blob = bucket.blob(gcs_path)
@@ -165,6 +174,7 @@ def _sync_download_blob(bucket_name: str, gcs_path: str) -> bytes:
 # ---------------------------------------------------------------------------
 # Async wrappers
 # ---------------------------------------------------------------------------
+
 
 async def _async_upload_blob(
     bucket_name: str,
@@ -211,6 +221,7 @@ async def _async_download_blob(bucket_name: str, gcs_path: str) -> bytes:
 # Internal MongoDB helpers
 # ---------------------------------------------------------------------------
 
+
 def _doc_from_mongo(raw: Dict[str, Any]) -> DocumentDB:
     """Convert a raw MongoDB document dict to a DocumentDB instance."""
     raw["_id"] = str(raw["_id"])
@@ -220,6 +231,7 @@ def _doc_from_mongo(raw: Dict[str, Any]) -> DocumentDB:
 # ---------------------------------------------------------------------------
 # Public service functions
 # ---------------------------------------------------------------------------
+
 
 async def upload_document(
     db: AsyncIOMotorDatabase,
@@ -231,13 +243,13 @@ async def upload_document(
     Upload a file to GCS and store its metadata in MongoDB.
 
     Parameters:
-        db        – Motor async database handle
-        file      – FastAPI UploadFile object
-        metadata  – dict with optional keys:
+        db        - Motor async database handle
+        file      - FastAPI UploadFile object
+        metadata  - dict with optional keys:
                       category, property_id, owner_id, tenant_id, vendor_id,
                       work_order_id, invoice_id, name, description, tags,
                       is_public, accessible_by
-        user_id   – ID of the user performing the upload
+        user_id   - ID of the user performing the upload
 
     Returns:
         DocumentDB instance with the persisted document record.
@@ -310,7 +322,7 @@ async def upload_document(
     logger.info("Document metadata saved to MongoDB", document_id=doc_id)
 
     # Fire-and-forget AI classification
-    asyncio.create_task(
+    _start_background_task(
         _fire_and_forget_ai(db, doc_id, file_bytes, original_filename)
     )
 
@@ -387,8 +399,8 @@ async def get_signed_url(gcs_path: str, expiry_minutes: int = 60) -> str:
     Generate a signed URL for temporary, secure file access.
 
     Parameters:
-        gcs_path       – GCS object path (relative to bucket)
-        expiry_minutes – How long the URL remains valid (default 60 min)
+        gcs_path       - GCS object path (relative to bucket)
+        expiry_minutes - How long the URL remains valid (default 60 min)
 
     Returns:
         A signed URL string, or a placeholder if GCS is unavailable.
@@ -402,7 +414,9 @@ async def get_signed_url(gcs_path: str, expiry_minutes: int = 60) -> str:
         url = await _async_generate_signed_url(
             settings.GCS_BUCKET_NAME, gcs_path, expiry_minutes
         )
-        log.info("Signed URL generated", gcs_path=gcs_path, expiry_minutes=expiry_minutes)
+        log.info(
+            "Signed URL generated", gcs_path=gcs_path, expiry_minutes=expiry_minutes
+        )
         return url
     except Exception as exc:
         log.error("Failed to generate signed URL", gcs_path=gcs_path, error=str(exc))
@@ -421,15 +435,17 @@ async def delete_document(
     Optionally removes the object from GCS (hard_delete_gcs=True).
 
     Parameters:
-        db                – Motor async database handle
-        document_id       – MongoDB _id of the document
-        user_id           – ID of the user requesting deletion
-        hard_delete_gcs   – If True, also delete the GCS object
+        db                - Motor async database handle
+        document_id       - MongoDB _id of the document
+        user_id           - ID of the user requesting deletion
+        hard_delete_gcs   - If True, also delete the GCS object
 
     Returns:
         True if the document was found and deleted, False otherwise.
     """
-    logger = log.bind(action="delete_document", document_id=document_id, user_id=user_id)
+    logger = log.bind(
+        action="delete_document", document_id=document_id, user_id=user_id
+    )
 
     raw = await db.documents.find_one({"_id": ObjectId(document_id)})
     if not raw:
@@ -460,7 +476,7 @@ async def delete_document(
         if gcs_path:
             _get_gcs_client()
             if _GCS_AVAILABLE:
-                asyncio.create_task(
+                _start_background_task(
                     _async_delete_blob(settings.GCS_BUCKET_NAME, gcs_path)
                 )
 
@@ -477,10 +493,10 @@ async def list_documents(
     List documents matching the given filters.
 
     Parameters:
-        db      – Motor async database handle
-        filters – MongoDB filter dict (e.g. {"property_id": "...", "category": "lease"})
-        skip    – Number of records to skip (pagination offset)
-        limit   – Maximum number of records to return
+        db      - Motor async database handle
+        filters - MongoDB filter dict (e.g. {"property_id": "...", "category": "lease"})
+        skip    - Number of records to skip (pagination offset)
+        limit   - Maximum number of records to return
 
     Returns:
         List of DocumentDB instances (excludes soft-deleted documents).
@@ -506,8 +522,8 @@ async def get_document(
     Retrieve a single document by its MongoDB _id.
 
     Parameters:
-        db          – Motor async database handle
-        document_id – MongoDB _id string
+        db          - Motor async database handle
+        document_id - MongoDB _id string
 
     Returns:
         DocumentDB instance, or None if not found / soft-deleted.
@@ -537,8 +553,8 @@ async def process_document_ai(
     FastAPI background task) and will not raise on classification errors.
 
     Parameters:
-        db          – Motor async database handle
-        document_id – MongoDB _id of the document to process
+        db          - Motor async database handle
+        document_id - MongoDB _id of the document to process
     """
     logger = log.bind(action="process_document_ai", document_id=document_id)
     logger.info("Starting document AI reprocessing")

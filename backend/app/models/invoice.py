@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
-from datetime import datetime, date
+from datetime import date, datetime
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class InvoiceStatus(str, Enum):
@@ -77,6 +78,7 @@ class PaymentDB(BaseModel):
 
 class RecurringScheduleDB(BaseModel):
     """Drives automatic invoice generation."""
+
     id: Optional[str] = Field(None, alias="_id")
     owner_id: str
     property_id: str

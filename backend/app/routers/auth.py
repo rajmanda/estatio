@@ -42,11 +42,13 @@ GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_USERINFO_URL = "https://www.googleapis.com/oauth2/v3/userinfo"
 
-GOOGLE_SCOPES = " ".join([
-    "openid",
-    "email",
-    "profile",
-])
+GOOGLE_SCOPES = " ".join(
+    [
+        "openid",
+        "email",
+        "profile",
+    ]
+)
 
 
 # ---------------------------------------------------------------------------
@@ -90,11 +92,12 @@ def _serialize_user(user: dict) -> dict:
 # Routes
 # ---------------------------------------------------------------------------
 
+
 @router.get("/google/login", summary="Redirect to Google OAuth consent screen")
 async def google_login(
     redirect_uri: Optional[str] = Query(
         None, description="Override the post-login redirect URI"
-    )
+    ),
 ):
     """
     Build the Google OAuth URL and redirect the user to Google's consent page.
@@ -102,17 +105,15 @@ async def google_login(
     to specify where to land after authentication; this value is stored via
     state and used after the callback.
     """
-    import urllib.parse
-    import json
     import base64
+    import json
+    import urllib.parse
 
     # Encode optional frontend redirect in state
     state_payload = {}
     if redirect_uri:
         state_payload["redirect_uri"] = redirect_uri
-    state = base64.urlsafe_b64encode(
-        json.dumps(state_payload).encode()
-    ).decode()
+    state = base64.urlsafe_b64encode(json.dumps(state_payload).encode()).decode()
 
     params = {
         "client_id": settings.GOOGLE_CLIENT_ID,
@@ -127,7 +128,9 @@ async def google_login(
     return RedirectResponse(url=url)
 
 
-@router.get("/google/callback", response_model=TokenResponse, summary="Google OAuth callback")
+@router.get(
+    "/google/callback", response_model=TokenResponse, summary="Google OAuth callback"
+)
 async def google_callback(
     code: str = Query(..., description="Authorization code from Google"),
     state: Optional[str] = Query(None),
@@ -183,7 +186,7 @@ async def google_callback(
     google_user = userinfo_resp.json()
     google_id: str = google_user["sub"]
     email: str = google_user["email"]
-    full_name: str = google_user.get("name", email.split("@")[0])
+    full_name: str = google_user.get("name", email.split("@", maxsplit=1)[0])
     avatar_url: Optional[str] = google_user.get("picture")
     is_verified: bool = google_user.get("email_verified", False)
 
@@ -293,7 +296,9 @@ async def refresh_token(
     )
 
 
-@router.get("/me", response_model=UserProfileResponse, summary="Get current user profile")
+@router.get(
+    "/me", response_model=UserProfileResponse, summary="Get current user profile"
+)
 async def get_me(current_user: dict = Depends(get_current_active_user)):
     """
     Return the profile of the currently authenticated user.
@@ -325,4 +330,3 @@ async def logout(current_user: dict = Depends(get_current_active_user)):
     """
     # Future: add token to Redis deny-list here
     log.info("User logged out", user_id=str(current_user["_id"]))
-    return

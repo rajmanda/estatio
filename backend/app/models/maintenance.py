@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
-from datetime import datetime, date
+from datetime import date, datetime
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class WorkOrderPriority(str, Enum):
@@ -108,6 +109,7 @@ class WorkOrderDB(BaseModel):
 
 class PreventiveMaintenanceDB(BaseModel):
     """Scheduled preventive maintenance tasks."""
+
     id: Optional[str] = Field(None, alias="_id")
     property_id: str
     title: str

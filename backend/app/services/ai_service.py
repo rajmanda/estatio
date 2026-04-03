@@ -16,12 +16,12 @@ Integration:
   - Graceful fallback when GEMINI_API_KEY is not set
 
 MongoDB collections used:
-  documents             – DocumentDB
-  work_orders           – WorkOrderDB
-  invoices              – InvoiceDB
-  journal_entries       – JournalEntryDB
-  properties            – PropertyDB
-  preventive_maintenance– PreventiveMaintenanceDB
+  documents             - DocumentDB
+  work_orders           - WorkOrderDB
+  invoices              - InvoiceDB
+  journal_entries       - JournalEntryDB
+  properties            - PropertyDB
+  preventive_maintenance- PreventiveMaintenanceDB
 """
 
 from __future__ import annotations
@@ -48,6 +48,7 @@ _GEMINI_AVAILABLE = False
 
 try:
     import google.generativeai as genai
+
     from app.core.config import settings
 
     if settings.GEMINI_API_KEY:
@@ -74,6 +75,7 @@ try:
         stop_after_attempt,
         wait_exponential,
     )
+
     _TENACITY_AVAILABLE = True
 except ImportError:
     _TENACITY_AVAILABLE = False
@@ -85,7 +87,7 @@ async def _with_retry(coro_fn, *args, **kwargs) -> Any:
     Execute an async coroutine function with exponential back-off retries.
 
     Falls back to a single attempt if tenacity is not installed.
-    Retries on any Exception up to 3 times with 2–10 s back-off.
+    Retries on any Exception up to 3 times with 2-10 s back-off.
     """
     if not _TENACITY_AVAILABLE:
         return await coro_fn(*args, **kwargs)
@@ -106,6 +108,7 @@ async def _with_retry(coro_fn, *args, **kwargs) -> Any:
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _round2(value: float) -> float:
     return round(value, 2)
@@ -150,9 +153,7 @@ async def _gemini_generate(prompt: str, image_data: Optional[bytes] = None) -> s
             _gemini_vision_model.generate_content, [prompt, image_part]
         )
     else:
-        response = await asyncio.to_thread(
-            _gemini_model.generate_content, prompt
-        )
+        response = await asyncio.to_thread(_gemini_model.generate_content, prompt)
 
     return response.text
 
@@ -160,6 +161,7 @@ async def _gemini_generate(prompt: str, image_data: Optional[bytes] = None) -> s
 # ---------------------------------------------------------------------------
 # Document classification
 # ---------------------------------------------------------------------------
+
 
 async def classify_document(
     document_content: bytes,
@@ -170,13 +172,13 @@ async def classify_document(
     generate a concise summary.
 
     Parameters:
-        document_content – raw bytes of the uploaded file
-        filename         – original filename (used for MIME-type hints)
+        document_content - raw bytes of the uploaded file
+        filename         - original filename (used for MIME-type hints)
 
     Returns:
         {
             "category": str,               # DocumentCategory value
-            "confidence": float,           # 0.0–1.0
+            "confidence": float,           # 0.0-1.0
             "summary": str,
             "extracted_data": {
                 ...                        # document-type specific fields
@@ -242,7 +244,9 @@ Return ONLY the JSON object, no surrounding text."""
             result["confidence"] = float(parsed.get("confidence", 0.5))
             result["summary"] = parsed.get("summary", result["summary"])
             result["tags"] = parsed.get("tags", [])
-            result["extracted_data"] = parsed.get("extracted_data", result["extracted_data"])
+            result["extracted_data"] = parsed.get(
+                "extracted_data", result["extracted_data"]
+            )
         else:
             logger.warning("Gemini returned non-JSON response, using defaults")
             fallback_used = True
@@ -392,7 +396,13 @@ Return ONLY valid JSON in this format:
             "work_orders",
             [
                 {"$match": {"status": "completed"}},
-                {"$group": {"_id": "$category", "total": {"$sum": "$actual_cost"}, "count": {"$sum": 1}}},
+                {
+                    "$group": {
+                        "_id": "$category",
+                        "total": {"$sum": "$actual_cost"},
+                        "count": {"$sum": 1},
+                    }
+                },
                 {"$sort": {"total": -1}},
             ],
             "Total actual cost of completed work orders grouped by category.",
@@ -401,7 +411,13 @@ Return ONLY valid JSON in this format:
             "invoices",
             [
                 {"$match": {"owner_id": user_id}},
-                {"$group": {"_id": "$status", "total": {"$sum": "$total_amount"}, "count": {"$sum": 1}}},
+                {
+                    "$group": {
+                        "_id": "$status",
+                        "total": {"$sum": "$total_amount"},
+                        "count": {"$sum": 1},
+                    }
+                },
             ],
             "Total invoice amounts grouped by status for this owner.",
         ),
@@ -414,7 +430,12 @@ Return ONLY valid JSON in this format:
                         "status": {"$in": ["sent", "viewed", "partial", "overdue"]},
                     }
                 },
-                {"$group": {"_id": None, "total_outstanding": {"$sum": "$balance_due"}}},
+                {
+                    "$group": {
+                        "_id": None,
+                        "total_outstanding": {"$sum": "$balance_due"},
+                    }
+                },
             ],
             "Total outstanding invoice balance for this owner.",
         ),
@@ -461,7 +482,9 @@ async def answer_query(
     logger = log.bind(action="answer_query", user_id=user_id)
     logger.info("Processing NL query", query=query)
 
-    collection, pipeline, explanation = await _build_aggregation_pipeline(db, query, user_id)
+    collection, pipeline, explanation = await _build_aggregation_pipeline(
+        db, query, user_id
+    )
     fallback_used = not _GEMINI_AVAILABLE
 
     data: List[Dict[str, Any]] = []
@@ -471,7 +494,9 @@ async def answer_query(
             # Convert ObjectId and datetime values to strings for serialisation
             serialisable: Dict[str, Any] = {}
             for k, v in row.items():
-                if hasattr(v, "__str__") and not isinstance(v, (int, float, bool, str, list, dict)):
+                if hasattr(v, "__str__") and not isinstance(
+                    v, (int, float, bool, str, list, dict)
+                ):
                     serialisable[k] = str(v)
                 else:
                     serialisable[k] = v
@@ -497,7 +522,9 @@ using the data above. Include specific numbers where relevant. Do not use markdo
             answer = await _with_retry(_gemini_generate, answer_prompt)
             answer = answer.strip()
         except Exception as exc:
-            logger.warning("Gemini answer generation failed, using fallback", error=str(exc))
+            logger.warning(
+                "Gemini answer generation failed, using fallback", error=str(exc)
+            )
             fallback_used = True
             # Build a basic answer from the raw data
             if data:
@@ -525,6 +552,7 @@ using the data above. Include specific numbers where relevant. Do not use markdo
 # ---------------------------------------------------------------------------
 # Property performance insight
 # ---------------------------------------------------------------------------
+
 
 async def generate_insight(
     db: AsyncIOMotorDatabase,
@@ -557,7 +585,13 @@ async def generate_insight(
         docs = []
         async for inv in db.invoices.find(
             {"property_id": property_id, "created_at": {"$gte": ninety_days_ago}},
-            {"total_amount": 1, "amount_paid": 1, "balance_due": 1, "status": 1, "due_date": 1},
+            {
+                "total_amount": 1,
+                "amount_paid": 1,
+                "balance_due": 1,
+                "status": 1,
+                "due_date": 1,
+            },
         ):
             docs.append(inv)
         return docs
@@ -566,8 +600,15 @@ async def generate_insight(
         docs = []
         async for wo in db.work_orders.find(
             {"property_id": property_id, "created_at": {"$gte": ninety_days_ago}},
-            {"category": 1, "status": 1, "actual_cost": 1, "approved_amount": 1,
-             "priority": 1, "created_at": 1, "completed_date": 1},
+            {
+                "category": 1,
+                "status": 1,
+                "actual_cost": 1,
+                "approved_amount": 1,
+                "priority": 1,
+                "created_at": 1,
+                "completed_date": 1,
+            },
         ):
             docs.append(wo)
         return docs
@@ -575,8 +616,14 @@ async def generate_insight(
     async def _get_property() -> Optional[Dict[str, Any]]:
         return await db.properties.find_one(
             {"_id": property_id},
-            {"name": 1, "property_type": 1, "monthly_rent": 1, "status": 1,
-             "purchase_price": 1, "current_value": 1},
+            {
+                "name": 1,
+                "property_type": 1,
+                "monthly_rent": 1,
+                "status": 1,
+                "purchase_price": 1,
+                "current_value": 1,
+            },
         )
 
     invoices, work_orders, property_doc = await asyncio.gather(
@@ -591,15 +638,14 @@ async def generate_insight(
 
     total_wo = len(work_orders)
     open_wo = sum(
-        1 for wo in work_orders
+        1
+        for wo in work_orders
         if wo.get("status") not in ("completed", "closed", "cancelled")
     )
     total_maintenance_cost = _round2(
         sum(float(wo.get("actual_cost") or 0) for wo in work_orders)
     )
-    emergency_wo = sum(
-        1 for wo in work_orders if wo.get("priority") == "emergency"
-    )
+    emergency_wo = sum(1 for wo in work_orders if wo.get("priority") == "emergency")
 
     metrics: Dict[str, Any] = {
         "period_days": 90,
@@ -629,7 +675,7 @@ Period: Last 90 days
 Key Metrics:
 - Total Invoiced: ${total_invoiced:,.2f}
 - Total Collected: ${total_collected:,.2f}
-- Collection Rate: {metrics['collection_rate_pct']}%
+- Collection Rate: {metrics["collection_rate_pct"]}%
 - Outstanding Balance: ${total_outstanding:,.2f}
 - Overdue Invoices: {overdue_count}
 - Work Orders: {total_wo} total, {open_wo} open, {emergency_wo} emergency
@@ -673,13 +719,17 @@ Return ONLY the JSON object."""
                 f"There have been {emergency_wo} emergency work order(s) in the past 90 days. "
                 "Consider reviewing preventive maintenance schedules to reduce reactive repairs."
             )
-            recommendations.append("Review and update preventive maintenance schedules.")
+            recommendations.append(
+                "Review and update preventive maintenance schedules."
+            )
         if open_wo > 3:
             parts.append(
                 f"{open_wo} work orders are currently open. "
                 "Ensure all are assigned to vendors and progressing."
             )
-            recommendations.append("Follow up on all open work orders with assigned vendors.")
+            recommendations.append(
+                "Follow up on all open work orders with assigned vendors."
+            )
         if not parts:
             parts.append(
                 f"Property {prop_name} has a {metrics['collection_rate_pct']}% collection rate "
@@ -707,6 +757,7 @@ Return ONLY the JSON object."""
 # ---------------------------------------------------------------------------
 # Predictive maintenance
 # ---------------------------------------------------------------------------
+
 
 async def predict_maintenance(
     db: AsyncIOMotorDatabase,
@@ -770,7 +821,10 @@ async def predict_maintenance(
         dates = sorted(stats["dates"])
         if len(dates) >= 2:
             date_objects = [date.fromisoformat(d) for d in dates]
-            gaps = [(date_objects[i + 1] - date_objects[i]).days for i in range(len(date_objects) - 1)]
+            gaps = [
+                (date_objects[i + 1] - date_objects[i]).days
+                for i in range(len(date_objects) - 1)
+            ]
             recurrence[cat] = sum(gaps) / len(gaps)
         else:
             recurrence[cat] = None
@@ -784,7 +838,13 @@ async def predict_maintenance(
             "is_active": True,
             "next_due_date": {"$lte": ninety_days},
         },
-        {"title": 1, "category": 1, "next_due_date": 1, "estimated_cost": 1, "frequency": 1},
+        {
+            "title": 1,
+            "category": 1,
+            "next_due_date": 1,
+            "estimated_cost": 1,
+            "frequency": 1,
+        },
     ):
         days_until = (date.fromisoformat(str(pm["next_due_date"])) - today).days
         upcoming_preventive.append(
@@ -887,7 +947,9 @@ Return ONLY the JSON object."""
                 predictions.append(
                     {
                         "category": pm["category"],
-                        "likelihood": "high" if pm["days_until_due"] <= 14 else "medium",
+                        "likelihood": "high"
+                        if pm["days_until_due"] <= 14
+                        else "medium",
                         "estimated_cost": pm.get("estimated_cost"),
                         "predicted_within_days": pm["days_until_due"],
                         "reasoning": (
@@ -921,7 +983,9 @@ Return ONLY the JSON object."""
             {
                 "category": cat,
                 "occurrences": stats["count"],
-                "avg_cost": _round2(stats["total_cost"] / stats["count"] if stats["count"] else 0),
+                "avg_cost": _round2(
+                    stats["total_cost"] / stats["count"] if stats["count"] else 0
+                ),
             }
             for cat, stats in category_stats.items()
         ],
@@ -933,6 +997,7 @@ Return ONLY the JSON object."""
 # Draft invoice description
 # ---------------------------------------------------------------------------
 
+
 async def draft_invoice_description(
     property_id: str,
     billing_period: str,
@@ -942,9 +1007,9 @@ async def draft_invoice_description(
     Use Gemini to suggest clear, professional invoice line-item descriptions.
 
     Parameters:
-        property_id    – str property identifier
-        billing_period – human-readable period, e.g. "March 2026"
-        line_items     – list of dicts with at least "description" and "amount" keys
+        property_id    - str property identifier
+        billing_period - human-readable period, e.g. "March 2026"
+        line_items     - list of dicts with at least "description" and "amount" keys
 
     Returns:
         {
@@ -996,7 +1061,7 @@ Return ONLY the JSON object."""
 
     fallback_used = False
     suggested_items: List[Dict[str, Any]] = []
-    invoice_summary = f"Invoice for property management services – {billing_period}."
+    invoice_summary = f"Invoice for property management services - {billing_period}."
 
     try:
         raw = await _with_retry(_gemini_generate, prompt)
@@ -1007,7 +1072,9 @@ Return ONLY the JSON object."""
         else:
             fallback_used = True
     except Exception as exc:
-        logger.warning("Gemini description drafting failed, using originals", error=str(exc))
+        logger.warning(
+            "Gemini description drafting failed, using originals", error=str(exc)
+        )
         fallback_used = True
 
     if fallback_used or not suggested_items:

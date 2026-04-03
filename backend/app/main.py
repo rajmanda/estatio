@@ -1,20 +1,27 @@
 import time
-import structlog
 from contextlib import asynccontextmanager
+
+import structlog
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from prometheus_fastapi_instrumentator import Instrumentator
 
 from app.core.config import settings
-from app.core.database import connect_db, close_db
-from app.services.accounting_service import seed_chart_of_accounts
-
+from app.core.database import close_db, connect_db
 from app.routers import (
-    auth, properties, owners, accounting,
-    maintenance, vendors, documents,
-    notifications, ai, tenants,
+    accounting,
+    ai,
+    auth,
+    documents,
+    maintenance,
+    notifications,
+    owners,
+    properties,
+    tenants,
+    vendors,
 )
+from app.services.accounting_service import seed_chart_of_accounts
 
 log = structlog.get_logger()
 
@@ -24,6 +31,7 @@ async def lifespan(app: FastAPI):
     log.info("Starting Estatio API", env=settings.APP_ENV)
     await connect_db()
     from app.core.database import get_db
+
     db = get_db()
     await seed_chart_of_accounts(db)
     log.info("Estatio API ready")
@@ -89,13 +97,13 @@ async def health():
 # ── Routers ────────────────────────────────────────────────────────────────────
 PREFIX = settings.API_V1_PREFIX
 
-app.include_router(auth.router,          prefix=PREFIX)
-app.include_router(properties.router,    prefix=PREFIX)
-app.include_router(owners.router,        prefix=PREFIX)
-app.include_router(accounting.router,    prefix=PREFIX)
-app.include_router(maintenance.router,   prefix=PREFIX)
-app.include_router(vendors.router,       prefix=PREFIX)
-app.include_router(documents.router,     prefix=PREFIX)
+app.include_router(auth.router, prefix=PREFIX)
+app.include_router(properties.router, prefix=PREFIX)
+app.include_router(owners.router, prefix=PREFIX)
+app.include_router(accounting.router, prefix=PREFIX)
+app.include_router(maintenance.router, prefix=PREFIX)
+app.include_router(vendors.router, prefix=PREFIX)
+app.include_router(documents.router, prefix=PREFIX)
 app.include_router(notifications.router, prefix=PREFIX)
-app.include_router(ai.router,            prefix=PREFIX)
-app.include_router(tenants.router,       prefix=PREFIX)
+app.include_router(ai.router, prefix=PREFIX)
+app.include_router(tenants.router, prefix=PREFIX)

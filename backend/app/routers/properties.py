@@ -15,7 +15,7 @@ Endpoints:
     GET    /{id}/financials         → property-level financial summary
 """
 
-from datetime import datetime, date, timezone
+from datetime import date, datetime, timezone
 from typing import Any, Dict, List, Optional
 
 import structlog
@@ -43,6 +43,7 @@ router = APIRouter(prefix="/properties", tags=["properties"])
 # ---------------------------------------------------------------------------
 # Pydantic schemas
 # ---------------------------------------------------------------------------
+
 
 class AddressSchema(BaseModel):
     street: str
@@ -124,7 +125,7 @@ class PropertyUpdateRequest(BaseModel):
 class AssignOwnerRequest(BaseModel):
     owner_id: str
     ownership_percentage: float = Field(gt=0, le=100)
-    billing_preference: str = "email"   # email | portal | mail
+    billing_preference: str = "email"  # email | portal | mail
     statement_preference: str = "monthly"  # monthly | quarterly | annual
     effective_date: date
     end_date: Optional[date] = None
@@ -157,11 +158,14 @@ class PropertyResponse(BaseModel):
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _obj_id(raw_id: str) -> ObjectId:
     try:
         return ObjectId(raw_id)
     except Exception:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid id: {raw_id}")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail=f"Invalid id: {raw_id}"
+        )
 
 
 def _serialize(doc: dict) -> dict:
@@ -184,9 +188,13 @@ def _serialize(doc: dict) -> dict:
 
 
 async def _get_property_or_404(property_id: str, db: AsyncIOMotorDatabase) -> dict:
-    doc = await db.properties.find_one({"_id": _obj_id(property_id), "deleted": {"$ne": True}})
+    doc = await db.properties.find_one(
+        {"_id": _obj_id(property_id), "deleted": {"$ne": True}}
+    )
     if not doc:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Property not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Property not found"
+        )
     return doc
 
 
@@ -208,13 +216,16 @@ async def _assert_property_access(
         }
     )
     if not ownership:
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Access denied")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN, detail="Access denied"
+        )
     return prop
 
 
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
+
 
 @router.get("/", summary="List properties")
 async def list_properties(
@@ -313,7 +324,11 @@ async def get_property(
             {"full_name": 1, "email": 1, "avatar_url": 1},
         )
         o["owner"] = (
-            {"id": str(owner["_id"]), "full_name": owner.get("full_name"), "email": owner.get("email")}
+            {
+                "id": str(owner["_id"]),
+                "full_name": owner.get("full_name"),
+                "email": owner.get("email"),
+            }
             if owner
             else None
         )
@@ -343,7 +358,9 @@ async def update_property(
 
     update_data = {k: v for k, v in body.model_dump().items() if v is not None}
     if not update_data:
-        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="No update data provided")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST, detail="No update data provided"
+        )
 
     update_data["updated_at"] = datetime.now(timezone.utc)
 
@@ -360,7 +377,11 @@ async def update_property(
     return _serialize(updated)
 
 
-@router.delete("/{property_id}", status_code=status.HTTP_204_NO_CONTENT, summary="Soft delete property")
+@router.delete(
+    "/{property_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Soft delete property",
+)
 async def delete_property(
     property_id: str,
     current_user: dict = Depends(require_manager_or_admin),
@@ -373,12 +394,12 @@ async def delete_property(
         {"$set": {"deleted": True, "updated_at": datetime.now(timezone.utc)}},
     )
     log.info("Property soft-deleted", property_id=property_id)
-    return
 
 
 # ---------------------------------------------------------------------------
 # Ownership sub-routes
 # ---------------------------------------------------------------------------
+
 
 @router.get("/{property_id}/owners", summary="List owners for a property")
 async def list_owners(
@@ -410,7 +431,11 @@ async def list_owners(
     return {"data": result, "total": len(result)}
 
 
-@router.post("/{property_id}/owners", status_code=status.HTTP_201_CREATED, summary="Assign owner to property")
+@router.post(
+    "/{property_id}/owners",
+    status_code=status.HTTP_201_CREATED,
+    summary="Assign owner to property",
+)
 async def assign_owner(
     property_id: str,
     body: AssignOwnerRequest,
@@ -426,7 +451,9 @@ async def assign_owner(
     # Validate the owner exists
     owner = await db.users.find_one({"_id": _obj_id(body.owner_id)})
     if not owner:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND, detail="Owner not found"
+        )
 
     # Check for duplicate
     existing = await db.ownerships.find_one(
@@ -439,10 +466,12 @@ async def assign_owner(
         )
 
     # Validate total ownership percentage
-    agg = await db.ownerships.aggregate([
-        {"$match": {"property_id": property_id}},
-        {"$group": {"_id": None, "total": {"$sum": "$ownership_percentage"}}},
-    ]).to_list(1)
+    agg = await db.ownerships.aggregate(
+        [
+            {"$match": {"property_id": property_id}},
+            {"$group": {"_id": None, "total": {"$sum": "$ownership_percentage"}}},
+        ]
+    ).to_list(1)
     current_total = agg[0]["total"] if agg else 0.0
     if current_total + body.ownership_percentage > 100.0 + 0.001:
         raise HTTPException(
@@ -492,12 +521,12 @@ async def remove_owner(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="Ownership record not found",
         )
-    return
 
 
 # ---------------------------------------------------------------------------
 # Units sub-route
 # ---------------------------------------------------------------------------
+
 
 @router.get("/{property_id}/units", summary="List units for a property")
 async def list_units(
@@ -519,7 +548,11 @@ async def list_units(
                 {"full_name": 1, "email": 1},
             )
             u["tenant_details"] = (
-                {"id": str(tenant["_id"]), "full_name": tenant.get("full_name"), "email": tenant.get("email")}
+                {
+                    "id": str(tenant["_id"]),
+                    "full_name": tenant.get("full_name"),
+                    "email": tenant.get("email"),
+                }
                 if tenant
                 else None
             )
@@ -531,6 +564,7 @@ async def list_units(
 # ---------------------------------------------------------------------------
 # Financials sub-route
 # ---------------------------------------------------------------------------
+
 
 @router.get("/{property_id}/financials", summary="Property-level financial summary")
 async def property_financials(

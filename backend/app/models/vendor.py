@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field, EmailStr
-from typing import Optional, List, Dict, Any
-from datetime import datetime, date
+from datetime import date, datetime
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, EmailStr, Field
 
 
 class VendorStatus(str, Enum):
@@ -45,6 +46,7 @@ class VendorDB(BaseModel):
 
 class VendorInvoiceDB(BaseModel):
     """AP: Invoice FROM a vendor for work done."""
+
     id: Optional[str] = Field(None, alias="_id")
     vendor_id: str
     work_order_id: Optional[str] = None

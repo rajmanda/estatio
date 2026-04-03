@@ -1,12 +1,25 @@
-from fastapi import APIRouter, Depends, HTTPException, Query, UploadFile, File, Form, status
 from typing import Optional
+
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Query,
+    UploadFile,
+    status,
+)
+
 from app.core.auth import get_current_active_user
 from app.core.database import get_db
 from app.services.document_service import (
-    upload_document, get_document,
-    get_signed_url, delete_document, process_document_ai
+    delete_document,
+    get_document,
+    get_signed_url,
+    process_document_ai,
+    upload_document,
 )
-import asyncio
 
 router = APIRouter(prefix="/documents", tags=["Documents"])
 
@@ -76,7 +89,13 @@ async def list_docs(
             {"property_id": {"$in": prop_ids}},
         ]
 
-    docs = await db.documents.find(filters).sort("created_at", -1).skip(skip).limit(limit).to_list(limit)
+    docs = (
+        await db.documents.find(filters)
+        .sort("created_at", -1)
+        .skip(skip)
+        .limit(limit)
+        .to_list(limit)
+    )
     total = await db.documents.count_documents(filters)
     return {"documents": [_serialize(d) for d in docs], "total": total}
 
@@ -121,11 +140,12 @@ async def delete_doc(
 @router.post("/{doc_id}/reprocess")
 async def reprocess_doc(
     doc_id: str,
+    background_tasks: __import__("fastapi").BackgroundTasks,
     db=Depends(get_db),
     current_user=Depends(get_current_active_user),
 ):
     doc = await get_document(db, doc_id)
     if not doc:
         raise HTTPException(status_code=404, detail="Document not found")
-    asyncio.create_task(process_document_ai(db, doc_id))
+    background_tasks.add_task(process_document_ai, db, doc_id)
     return {"status": "reprocessing_started", "document_id": doc_id}

@@ -1,7 +1,8 @@
-from pydantic import BaseModel, Field
-from typing import Optional, List
-from datetime import datetime, date
+from datetime import date, datetime
 from enum import Enum
+from typing import List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class AccountType(str, Enum):
@@ -46,13 +47,14 @@ class AccountSubtype(str, Enum):
 
 class AccountDB(BaseModel):
     """Chart of Accounts entry."""
+
     id: Optional[str] = Field(None, alias="_id")
     code: str
     name: str
     account_type: AccountType
     subtype: AccountSubtype
     parent_id: Optional[str] = None
-    property_id: Optional[str] = None   # None = company-level
+    property_id: Optional[str] = None  # None = company-level
     description: Optional[str] = None
     is_active: bool = True
     is_system: bool = False  # System accounts cannot be deleted
@@ -65,6 +67,7 @@ class AccountDB(BaseModel):
 
 class JournalLine(BaseModel):
     """A single debit or credit line in a journal entry."""
+
     account_id: str
     account_code: str
     account_name: str
@@ -76,13 +79,14 @@ class JournalLine(BaseModel):
 
 class JournalEntryDB(BaseModel):
     """Double-entry journal entry. Sum(debits) must == Sum(credits)."""
+
     id: Optional[str] = Field(None, alias="_id")
     entry_number: str
     date: date
     description: str
     entry_type: str  # rent, invoice, payment, expense, adjustment, opening
     lines: List[JournalLine]
-    reference_id: Optional[str] = None   # invoice_id, work_order_id, etc.
+    reference_id: Optional[str] = None  # invoice_id, work_order_id, etc.
     reference_type: Optional[str] = None  # "invoice", "work_order", "payment"
     property_id: Optional[str] = None
     is_voided: bool = False
@@ -103,6 +107,7 @@ class JournalEntryDB(BaseModel):
 
 class LedgerBalanceDB(BaseModel):
     """Materialized balance per account per period for fast reporting."""
+
     id: Optional[str] = Field(None, alias="_id")
     account_id: str
     account_code: str
