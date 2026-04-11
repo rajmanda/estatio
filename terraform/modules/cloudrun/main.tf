@@ -260,8 +260,7 @@ resource "google_cloud_run_v2_service" "frontend" {
 
       resources {
         limits = {
-          # 0.5 vCPU expressed as milli-CPUs.
-          cpu    = "500m"
+          cpu    = "1"
           memory = "256Mi"
         }
         cpu_idle          = true
