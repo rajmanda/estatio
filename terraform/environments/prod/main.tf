@@ -387,8 +387,3 @@ output "cicd_service_account_email" {
   description = "CI/CD service account email for GitHub Actions."
   value       = module.iam.cicd_sa_email
 }
-
-output "workload_identity_provider" {
-  description = "Workload Identity provider resource name for GitHub Actions."
-  value       = module.iam.workload_identity_provider
-}
