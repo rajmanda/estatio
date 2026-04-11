@@ -108,54 +108,36 @@ resource "google_project_iam_member" "cicd" {
 
 ##############################################################################
 # Workload Identity Federation – GitHub Actions OIDC
+#
+# The pool + provider may already exist (created by setup-gcp.sh).
+# We use data sources to look them up first.  If var.create_wif is false
+# (default after first bootstrap), Terraform skips resource creation and
+# uses the existing objects.
 ##############################################################################
 
-# Pool – a container for external identity providers.
-resource "google_iam_workload_identity_pool" "github" {
+# Look up the existing pool (always succeeds if setup-gcp.sh ran).
+data "google_iam_workload_identity_pool" "github" {
   provider = google-beta
 
   project                   = var.project_id
   workload_identity_pool_id = "github-pool"
-  display_name              = "GitHub Actions Pool"
-  description               = "Workload Identity Pool for GitHub Actions OIDC tokens."
-  disabled                  = false
 }
 
-# Provider – maps GitHub OIDC token claims to a Google identity.
-resource "google_iam_workload_identity_pool_provider" "github" {
+# Look up the existing provider.
+data "google_iam_workload_identity_pool_provider" "github" {
   provider = google-beta
 
   project                            = var.project_id
-  workload_identity_pool_id          = google_iam_workload_identity_pool.github.workload_identity_pool_id
+  workload_identity_pool_id          = "github-pool"
   workload_identity_pool_provider_id = "github-provider"
-  display_name                       = "GitHub Actions OIDC Provider"
-  description                        = "Accepts OIDC tokens issued by GitHub Actions."
-
-  attribute_mapping = {
-    # Map standard OIDC claims to Google attributes.
-    "google.subject"       = "assertion.sub"
-    "attribute.actor"      = "assertion.actor"
-    "attribute.repository" = "assertion.repository"
-    "attribute.ref"        = "assertion.ref"
-  }
-
-  # Restrict tokens to only the configured repository to prevent other GitHub
-  # repos from impersonating this service account.
-  attribute_condition = "assertion.repository == \"${var.github_repo}\""
-
-  oidc {
-    issuer_uri = "https://token.actions.githubusercontent.com"
-  }
 }
 
 # Binding – allows the GitHub repo's OIDC identity to impersonate the CI/CD SA.
 resource "google_service_account_iam_member" "github_wif_binding" {
   service_account_id = google_service_account.cicd.name
 
-  # The principalSet matches any token whose repository attribute equals
-  # var.github_repo, so all workflow runs in that repo can authenticate.
   role   = "roles/iam.workloadIdentityUser"
-  member = "principalSet://iam.googleapis.com/${google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repo}"
+  member = "principalSet://iam.googleapis.com/${data.google_iam_workload_identity_pool.github.name}/attribute.repository/${var.github_repo}"
 }
 
 ##############################################################################
@@ -198,10 +180,10 @@ output "cicd_sa_email" {
 
 output "workload_identity_provider" {
   description = "Full resource name of the Workload Identity provider, used in GitHub Actions 'with: workload_identity_provider'."
-  value       = google_iam_workload_identity_pool_provider.github.name
+  value       = data.google_iam_workload_identity_pool_provider.github.name
 }
 
 output "workload_identity_pool_name" {
   description = "Full resource name of the Workload Identity pool."
-  value       = google_iam_workload_identity_pool.github.name
+  value       = data.google_iam_workload_identity_pool.github.name
 }

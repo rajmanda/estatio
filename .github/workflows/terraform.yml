@@ -136,14 +136,9 @@ jobs:
             fi
           }
 
-          # Workload Identity Pool + Provider
-          import_if_missing "module.iam.google_iam_workload_identity_pool.github" \
-            "projects/${PROJECT}/locations/global/workloadIdentityPools/github-pool"
+          # WIF pool + provider are read via data sources — no import needed.
 
-          import_if_missing "module.iam.google_iam_workload_identity_pool_provider.github" \
-            "projects/${PROJECT}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
-
-          # Service accounts (created by setup-gcp.sh as "estatio-cicd")
+          # Service accounts (created by setup-gcp.sh)
           import_if_missing "module.iam.google_service_account.cicd" \
             "projects/${PROJECT}/serviceAccounts/estatio-cicd-sa@${PROJECT}.iam.gserviceaccount.com"
 
