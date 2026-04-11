@@ -129,8 +129,6 @@ jobs:
             -var="region=${{ vars.GCP_REGION || 'us-central1' }}" \
             -var="documents_bucket_name=estatio-documents-${{ vars.GCP_PROJECT_ID }}" \
             -var="github_repo=${{ vars.GITHUB_REPO_SLUG || github.repository }}" \
-            -var="backend_image=${{ vars.GCP_REGION || 'us-central1' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/estatio/backend:latest" \
-            -var="frontend_image=${{ vars.GCP_REGION || 'us-central1' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/estatio/frontend:latest" \
             2>&1 | tee plan_output.txt
 
       # ── Comment plan on PRs ───────────────────────────────────────────────
