@@ -63,6 +63,31 @@ jobs:
           service_account:            ${{ vars.GCP_WORKLOAD_IDENTITY_SA }}
           audience: "google-wif"
 
+      # ── Bootstrap: ensure GCS state bucket exists ────────────────────────
+      # Runs before `terraform init` so the remote backend is available.
+      # Uses `gcloud storage buckets describe` to check existence first —
+      # the create command is only called when the bucket is missing, making
+      # this step fully idempotent (safe to re-run on every workflow run).
+      - name: Bootstrap Terraform state bucket
+        run: |
+          BUCKET="estatio-terraform-state"
+          PROJECT="${{ vars.GCP_PROJECT_ID }}"
+          REGION="${{ vars.GCP_REGION || 'us-central1' }}"
+
+          if gcloud storage buckets describe "gs://${BUCKET}" --project="${PROJECT}" > /dev/null 2>&1; then
+            echo "State bucket gs://${BUCKET} already exists — skipping creation."
+          else
+            echo "Creating state bucket gs://${BUCKET} ..."
+            gcloud storage buckets create "gs://${BUCKET}" \
+              --project="${PROJECT}" \
+              --location="${REGION}" \
+              --uniform-bucket-level-access \
+              --public-access-prevention
+            # Enable versioning so we can recover from accidental state corruption.
+            gcloud storage buckets update "gs://${BUCKET}" --versioning
+            echo "State bucket created."
+          fi
+
       # ── Setup Terraform ───────────────────────────────────────────────────
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
