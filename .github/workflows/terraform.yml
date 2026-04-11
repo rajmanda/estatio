@@ -107,8 +107,10 @@ jobs:
         run: terraform validate
 
       # ── Plan ─────────────────────────────────────────────────────────────
-      # Sensitive vars are passed directly from GitHub secrets — they are
-      # never written to disk or printed in logs (Terraform marks them redacted).
+      # Sensitive vars are passed via TF_VAR_* env vars — never in shell
+      # args so they don't appear in runner logs or process listings.
+      # set -o pipefail ensures the step fails when terraform fails, even
+      # though output is piped through tee.
       - name: Terraform Plan
         id: plan
         env:
@@ -121,6 +123,7 @@ jobs:
           TF_VAR_gemini_api_key:            ${{ secrets.GEMINI_API_KEY }}
           TF_VAR_openai_api_key:            ${{ secrets.OPENAI_API_KEY }}
         run: |
+          set -o pipefail
           terraform plan -no-color -out=tfplan \
             -var="project_id=${{ vars.GCP_PROJECT_ID }}" \
             -var="region=${{ vars.GCP_REGION || 'us-central1' }}" \
