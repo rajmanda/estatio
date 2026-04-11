@@ -31,6 +31,10 @@ export type BadgeStatus =
   | 'closed'
   | 'on_hold'
   | 'new'
+  | 'inactive'
+  | 'past'
+  | 'eviction'
+  | 'void'
 
 export type BadgeVariant = 'filled' | 'soft' | 'outline' | 'dot'
 export type BadgeSize = 'xs' | 'sm' | 'md' | 'lg'
@@ -185,6 +189,39 @@ const statusConfig: Record<
   },
   cancelled: {
     label: 'Cancelled',
+    color: 'text-white/40',
+    bg: 'bg-white/[0.05]',
+    border: 'border-white/[0.1]',
+    dot: 'bg-white/30',
+    icon: XCircleIcon,
+  },
+  inactive: {
+    label: 'Inactive',
+    color: 'text-white/40',
+    bg: 'bg-white/[0.05]',
+    border: 'border-white/[0.1]',
+    dot: 'bg-white/30',
+    icon: MinusCircleIcon,
+  },
+  past: {
+    label: 'Past',
+    color: 'text-white/40',
+    bg: 'bg-white/[0.05]',
+    border: 'border-white/[0.1]',
+    dot: 'bg-white/30',
+    icon: MinusCircleIcon,
+  },
+  eviction: {
+    label: 'Eviction',
+    color: 'text-red-300',
+    bg: 'bg-red-500/[0.15]',
+    border: 'border-red-500/30',
+    dot: 'bg-red-400',
+    icon: ExclamationCircleIcon,
+    glow: 'shadow-[0_0_12px_rgba(239,68,68,0.25)]',
+  },
+  void: {
+    label: 'Void',
     color: 'text-white/40',
     bg: 'bg-white/[0.05]',
     border: 'border-white/[0.1]',

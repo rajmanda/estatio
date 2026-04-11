@@ -5,8 +5,12 @@ interface User {
   id: string
   email: string
   full_name: string
+  first_name?: string
+  last_name?: string
   role: string
   avatar_url?: string
+  phone?: string
+  is_google_auth?: boolean
 }
 
 interface AuthState {

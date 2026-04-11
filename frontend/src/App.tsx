@@ -11,12 +11,19 @@ const qc = new QueryClient({
 })
 
 // Lazy-load all pages
-const OwnerDashboard  = lazy(() => import('./pages/dashboard/OwnerDashboard'))
-const AdminDashboard  = lazy(() => import('./pages/dashboard/AdminDashboard'))
-const PropertiesPage  = lazy(() => import('./pages/properties/PropertiesPage'))
-const MaintenancePage = lazy(() => import('./pages/maintenance/MaintenancePage'))
+const OwnerDashboard   = lazy(() => import('./pages/dashboard/OwnerDashboard'))
+const AdminDashboard   = lazy(() => import('./pages/dashboard/AdminDashboard'))
+const PropertiesPage   = lazy(() => import('./pages/properties/PropertiesPage'))
+const MaintenancePage  = lazy(() => import('./pages/maintenance/MaintenancePage'))
 const NotificationsPage = lazy(() => import('./pages/notifications/NotificationsPage'))
-const AISearch        = lazy(() => import('./pages/ai/AISearch'))
+const AISearch         = lazy(() => import('./pages/ai/AISearch'))
+const OwnersPage       = lazy(() => import('./pages/owners/OwnersPage'))
+const TenantsPage      = lazy(() => import('./pages/tenants/TenantsPage'))
+const AccountingPage   = lazy(() => import('./pages/accounting/AccountingPage'))
+const InvoicesPage     = lazy(() => import('./pages/invoices/InvoicesPage'))
+const VendorsPage      = lazy(() => import('./pages/vendors/VendorsPage'))
+const DocumentsPage    = lazy(() => import('./pages/documents/DocumentsPage'))
+const SettingsPage     = lazy(() => import('./pages/settings/SettingsPage'))
 
 const Spinner = () => (
   <div className="flex items-center justify-center h-64">
@@ -58,14 +65,13 @@ export default function App() {
             <Route path="maintenance" element={<Suspense fallback={<Spinner />}><MaintenancePage /></Suspense>} />
             <Route path="notifications" element={<Suspense fallback={<Spinner />}><NotificationsPage /></Suspense>} />
             <Route path="ai-search" element={<Suspense fallback={<Spinner />}><AISearch /></Suspense>} />
-            {/* Placeholder routes for remaining pages */}
-            <Route path="owners"      element={<ComingSoon title="Owners" />} />
-            <Route path="tenants"     element={<ComingSoon title="Tenants" />} />
-            <Route path="accounting"  element={<ComingSoon title="Accounting" />} />
-            <Route path="invoices"    element={<ComingSoon title="Invoices" />} />
-            <Route path="vendors"     element={<ComingSoon title="Vendors" />} />
-            <Route path="documents"   element={<ComingSoon title="Documents" />} />
-            <Route path="settings"    element={<ComingSoon title="Settings" />} />
+            <Route path="owners"      element={<Suspense fallback={<Spinner />}><OwnersPage /></Suspense>} />
+            <Route path="tenants"     element={<Suspense fallback={<Spinner />}><TenantsPage /></Suspense>} />
+            <Route path="accounting"  element={<Suspense fallback={<Spinner />}><AccountingPage /></Suspense>} />
+            <Route path="invoices"    element={<Suspense fallback={<Spinner />}><InvoicesPage /></Suspense>} />
+            <Route path="vendors"     element={<Suspense fallback={<Spinner />}><VendorsPage /></Suspense>} />
+            <Route path="documents"   element={<Suspense fallback={<Spinner />}><DocumentsPage /></Suspense>} />
+            <Route path="settings"    element={<Suspense fallback={<Spinner />}><SettingsPage /></Suspense>} />
             <Route path="*"           element={<Navigate to="/dashboard" replace />} />
           </Route>
         </Routes>
