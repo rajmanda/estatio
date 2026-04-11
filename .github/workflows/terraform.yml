@@ -124,7 +124,10 @@ jobs:
             -var="github_repo=${REPO}"
           )
 
-          # Helper: import a resource, skip if already in state
+          # Helper: import a resource if it's not in state.
+          # Safe after terraform destroy — if the resource doesn't exist
+          # in GCP either, the import fails gracefully and terraform plan
+          # will create it fresh.
           import_if_missing() {
             local ADDR="$1"
             local ID="$2"
@@ -132,7 +135,11 @@ jobs:
               echo "✅ $ADDR already in state — skipping."
             else
               echo "📥 Importing $ADDR ..."
-              terraform import "${COMMON_VARS[@]}" "$ADDR" "$ID" || echo "⚠️  Import of $ADDR failed (may not exist in GCP) — continuing."
+              if terraform import "${COMMON_VARS[@]}" "$ADDR" "$ID" 2>/dev/null; then
+                echo "✅ $ADDR imported successfully."
+              else
+                echo "⏭️  $ADDR not found in GCP — will be created by apply."
+              fi
             fi
           }
 
