@@ -1,7 +1,8 @@
 import json
+import os
 from typing import List, Optional
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings
 
 
@@ -23,11 +24,11 @@ class Settings(BaseSettings):
     # Google OAuth
     GOOGLE_CLIENT_ID: str
     GOOGLE_CLIENT_SECRET: str
-    GOOGLE_REDIRECT_URI: str
+    GOOGLE_REDIRECT_URI: str = ""
 
     # GCS
     GCS_BUCKET_NAME: str = "estatio-documents"
-    GCS_PROJECT_ID: str
+    GCS_PROJECT_ID: str = ""
     GOOGLE_APPLICATION_CREDENTIALS: Optional[str] = None
 
     # AI
@@ -60,6 +61,27 @@ class Settings(BaseSettings):
             except (json.JSONDecodeError, TypeError, ValueError):
                 return [v]
         return v
+
+    @model_validator(mode="after")
+    def derive_redirect_uri(self):
+        """Auto-derive GOOGLE_REDIRECT_URI on Cloud Run when not explicitly set."""
+        if not self.GOOGLE_REDIRECT_URI:
+            # Cloud Run always sets K_SERVICE and K_REVISION env vars.
+            k_service = os.environ.get("K_SERVICE")
+            gcp_region = os.environ.get("CLOUD_RUN_REGION", "us-central1")
+            gcp_project = os.environ.get("GCS_PROJECT_ID", "")
+            if k_service:
+                # Build the deterministic Cloud Run URL.
+                self.GOOGLE_REDIRECT_URI = (
+                    f"https://{k_service}-{gcp_project}.{gcp_region}.run.app"
+                    f"/api/v1/auth/google/callback"
+                )
+            else:
+                # Local development fallback.
+                self.GOOGLE_REDIRECT_URI = (
+                    "http://localhost:8000/api/v1/auth/google/callback"
+                )
+        return self
 
     class Config:
         env_file = ".env"
