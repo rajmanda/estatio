@@ -1,0 +1,74 @@
+##############################################################################
+# Estatio – Terraform Destroy
+#
+# Manual-only workflow to tear down all Terraform-managed infrastructure.
+# Requires explicit confirmation via the "confirm" input.
+#
+# Usage (CLI):
+#   gh workflow run "Terraform Destroy" --ref main -f confirm=DESTROY
+#
+# Usage (UI):
+#   Actions → Terraform Destroy → Run workflow → type DESTROY → Run
+##############################################################################
+
+name: Terraform Destroy
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type DESTROY to confirm teardown of all infrastructure'
+        required: true
+        type: string
+
+env:
+  TF_VERSION:  "1.7.0"
+  WORKING_DIR: terraform/environments/prod
+
+jobs:
+  destroy:
+    name: Terraform Destroy
+    runs-on: ubuntu-latest
+    if: github.event.inputs.confirm == 'DESTROY'
+
+    permissions:
+      contents: read
+      id-token:  write
+
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account:            ${{ vars.GCP_WORKLOAD_IDENTITY_SA }}
+          audience: "google-wif"
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: terraform init
+
+      - name: Terraform Destroy
+        env:
+          TF_VAR_mongodb_connection_string: ${{ secrets.MONGODB_URL }}
+          TF_VAR_secret_key:                ${{ secrets.APP_SECRET_KEY }}
+          TF_VAR_google_client_id:          ${{ secrets.GOOGLE_CLIENT_ID }}
+          TF_VAR_google_client_secret:      ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          TF_VAR_gemini_api_key:            ${{ secrets.GEMINI_API_KEY }}
+          TF_VAR_openai_api_key:            ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          terraform destroy -auto-approve \
+            -var="project_id=${{ vars.GCP_PROJECT_ID }}" \
+            -var="region=${{ vars.GCP_REGION || 'us-central1' }}" \
+            -var="documents_bucket_name=estatio-documents-${{ vars.GCP_PROJECT_ID }}" \
+            -var="github_repo=${{ vars.GITHUB_REPO_SLUG || github.repository }}"
