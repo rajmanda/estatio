@@ -3,15 +3,22 @@
 #
 # Flow:
 #   1. GitHub Actions secrets hold the plaintext values.
-#   2. The Terraform workflow passes them as -var flags (sensitive = true).
+#   2. The Terraform workflow passes them as TF_VAR_* env vars.
 #   3. This module creates the Secret Manager resources and stores the values.
 #   4. The backend Cloud Run SA is granted secretAccessor on each secret.
 #
 # To rotate a secret:
 #   - Update the GitHub Actions secret value.
 #   - Re-run the Terraform workflow (push to main or workflow_dispatch).
-#   - Terraform will create a new secret version; the previous version is
+#   - Terraform will create a new secret version; previous versions are
 #     preserved automatically for auditing.
+#
+# Design note:
+#   Terraform forbids iterating `for_each` over sensitive values because the
+#   map keys would leak into resource addresses. We solve this by keeping two
+#   separate structures:
+#     • secret_names  — a plain set of strings used for for_each
+#     • secret_values — a sensitive map used only inside secret_data
 ##############################################################################
 
 terraform {
@@ -26,28 +33,37 @@ terraform {
 }
 
 ##############################################################################
-# Locals – build the map of secret-name → value
+# Locals
 ##############################################################################
 
 locals {
-  # Core secrets — always required.
-  core_secrets = {
+  # Non-sensitive set of secret names — safe to use as for_each keys.
+  core_secret_names = toset([
+    "estatio-mongodb-url",
+    "estatio-secret-key",
+    "estatio-google-client-id",
+    "estatio-google-client-secret",
+    "estatio-gcs-bucket-name",
+  ])
+
+  optional_secret_names = toset(concat(
+    var.gemini_api_key != "" ? ["estatio-gemini-api-key"] : [],
+    var.openai_api_key != "" ? ["estatio-openai-api-key"] : [],
+  ))
+
+  all_secret_names = setunion(local.core_secret_names, local.optional_secret_names)
+
+  # Sensitive map of name → value.  Only referenced inside secret_data,
+  # never as a for_each key — so Terraform won't complain.
+  secret_values = {
     "estatio-mongodb-url"          = var.mongodb_url
     "estatio-secret-key"           = var.secret_key
     "estatio-google-client-id"     = var.google_client_id
     "estatio-google-client-secret" = var.google_client_secret
     "estatio-gcs-bucket-name"      = var.gcs_bucket_name
+    "estatio-gemini-api-key"       = var.gemini_api_key
+    "estatio-openai-api-key"       = var.openai_api_key
   }
-
-  # Optional secrets — only created when a non-empty value is supplied.
-  optional_secrets = {
-    for k, v in {
-      "estatio-gemini-api-key" = var.gemini_api_key
-      "estatio-openai-api-key" = var.openai_api_key
-    } : k => v if v != null && v != ""
-  }
-
-  all_secrets = merge(local.core_secrets, local.optional_secrets)
 }
 
 ##############################################################################
@@ -55,10 +71,10 @@ locals {
 ##############################################################################
 
 resource "google_secret_manager_secret" "secrets" {
-  for_each = local.all_secrets
+  for_each = local.all_secret_names
 
   project   = var.project_id
-  secret_id = each.key
+  secret_id = each.value
 
   replication {
     auto {}
@@ -72,20 +88,13 @@ resource "google_secret_manager_secret" "secrets" {
 
 ##############################################################################
 # Secret Manager – secret versions (the actual plaintext values)
-#
-# NOTE: We do NOT use ignore_changes here so that rotating a secret value in
-# GitHub Actions secrets and re-running Terraform automatically creates a new
-# version. Secret Manager retains all previous versions; destroy them manually
-# if required.
 ##############################################################################
 
 resource "google_secret_manager_secret_version" "versions" {
-  for_each = local.all_secrets
+  for_each = local.all_secret_names
 
-  secret      = google_secret_manager_secret.secrets[each.key].id
-  secret_data = each.value
-
-  # Terraform marks secret_data as sensitive so it never appears in plan output.
+  secret      = google_secret_manager_secret.secrets[each.value].id
+  secret_data = local.secret_values[each.value]
 }
 
 ##############################################################################
@@ -93,10 +102,10 @@ resource "google_secret_manager_secret_version" "versions" {
 ##############################################################################
 
 resource "google_secret_manager_secret_iam_member" "backend_accessor" {
-  for_each = local.all_secrets
+  for_each = local.all_secret_names
 
   project   = var.project_id
-  secret_id = google_secret_manager_secret.secrets[each.key].secret_id
+  secret_id = google_secret_manager_secret.secrets[each.value].secret_id
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${var.backend_sa_email}"
 }
@@ -142,7 +151,6 @@ variable "google_client_secret" {
 variable "gcs_bucket_name" {
   description = "GCS bucket name (stored as a secret so the backend reads it at runtime)."
   type        = string
-  # Not sensitive — bucket names are not credentials.
 }
 
 variable "gemini_api_key" {
@@ -164,11 +172,11 @@ variable "openai_api_key" {
 ##############################################################################
 
 output "secret_ids" {
-  description = "Map of secret name → full Secret Manager resource ID."
+  description = "Map of secret name to full Secret Manager resource ID."
   value       = { for k, v in google_secret_manager_secret.secrets : k => v.id }
 }
 
 output "secret_names" {
-  description = "Map of secret name → short secret_id (used in Cloud Run --set-secrets)."
+  description = "Map of secret name to short secret_id (used in Cloud Run --set-secrets)."
   value       = { for k, v in google_secret_manager_secret.secrets : k => v.secret_id }
 }
