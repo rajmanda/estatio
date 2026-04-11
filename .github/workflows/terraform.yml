@@ -156,6 +156,21 @@ jobs:
           import_if_missing "google_storage_bucket.documents" \
             "estatio-documents-${PROJECT}"
 
+          # Cloud Run services (created by previous partial applies)
+          import_if_missing "module.cloudrun.google_cloud_run_v2_service.backend" \
+            "projects/${PROJECT}/locations/${REGION}/services/estatio-api"
+
+          import_if_missing "module.cloudrun.google_cloud_run_v2_service.frontend" \
+            "projects/${PROJECT}/locations/${REGION}/services/estatio-web"
+
+          # Secret Manager secrets (created by previous partial applies)
+          for SECRET in estatio-mongodb-url estatio-secret-key estatio-google-client-id estatio-google-client-secret estatio-gcs-bucket-name estatio-gemini-api-key; do
+            import_if_missing "module.secrets.google_secret_manager_secret.secrets[\"${SECRET}\"]" \
+              "projects/${PROJECT}/secrets/${SECRET}"
+            import_if_missing "module.secrets.google_secret_manager_secret_version.versions[\"${SECRET}\"]" \
+              "projects/${PROJECT}/secrets/${SECRET}/versions/latest"
+          done
+
       # ── Validate ─────────────────────────────────────────────────────────
       - name: Terraform Validate
         run: terraform validate
