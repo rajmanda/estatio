@@ -1,4 +1,22 @@
-# Trigger deploy - 2026-04-03
+##############################################################################
+# Estatio – Terraform Plan / Apply
+#
+# GitHub Actions secrets required (Settings → Secrets → Actions):
+#   MONGODB_URL            - MongoDB Atlas connection string
+#   APP_SECRET_KEY         - JWT signing key (random 32+ char string)
+#   GOOGLE_CLIENT_ID       - Google OAuth 2.0 client ID
+#   GOOGLE_CLIENT_SECRET   - Google OAuth 2.0 client secret
+#   GEMINI_API_KEY         - Google Gemini API key
+#   OPENAI_API_KEY         - OpenAI API key (optional, leave empty to skip)
+#
+# GitHub Actions variables required (Settings → Variables → Actions):
+#   GCP_PROJECT_ID                  - e.g. mm-owners-5b8611
+#   GCP_WORKLOAD_IDENTITY_PROVIDER  - projects/.../locations/.../providers/...
+#   GCP_WORKLOAD_IDENTITY_SA        - cicd@PROJECT.iam.gserviceaccount.com
+#   GCP_REGION                      - e.g. us-central1 (default: us-central1)
+#   GITHUB_REPO_SLUG                - owner/repo  e.g. rajmanda/estatio
+##############################################################################
+
 name: Terraform
 
 on:
@@ -12,9 +30,10 @@ on:
     branches: [main]
     paths:
       - 'terraform/**'
+      - '.github/workflows/terraform.yml'
 
 env:
-  TF_VERSION: 1.7.0
+  TF_VERSION:  "1.7.0"
   WORKING_DIR: terraform/environments/prod
 
 jobs:
@@ -23,60 +42,96 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: read
-      id-token: write
-      pull-requests: write
+      contents:      read
+      id-token:      write   # required for Workload Identity Federation
+      pull-requests: write   # required to post plan comments on PRs
 
     defaults:
       run:
         working-directory: ${{ env.WORKING_DIR }}
 
     steps:
-      - uses: actions/checkout@v4
+      # ── Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout
+        uses: actions/checkout@v4
 
+      # ── Authenticate to GCP via Workload Identity ─────────────────────────
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_WORKLOAD_IDENTITY_SA }}
-          audience: 'google-wif'
+          service_account:            ${{ vars.GCP_WORKLOAD_IDENTITY_SA }}
+          audience: "google-wif"
 
+      # ── Setup Terraform ───────────────────────────────────────────────────
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      # ── Format check ─────────────────────────────────────────────────────
       - name: Terraform Format Check
         run: terraform fmt -check -recursive ../../
 
+      # ── Init ─────────────────────────────────────────────────────────────
       - name: Terraform Init
         run: terraform init
 
+      # ── Validate ─────────────────────────────────────────────────────────
       - name: Terraform Validate
         run: terraform validate
 
+      # ── Plan ─────────────────────────────────────────────────────────────
+      # Sensitive vars are passed directly from GitHub secrets — they are
+      # never written to disk or printed in logs (Terraform marks them redacted).
       - name: Terraform Plan
         id: plan
+        env:
+          # Expose secrets as env vars so they don't appear in the shell
+          # command history.  Terraform reads TF_VAR_<name> automatically.
+          TF_VAR_mongodb_connection_string: ${{ secrets.MONGODB_URL }}
+          TF_VAR_secret_key:                ${{ secrets.APP_SECRET_KEY }}
+          TF_VAR_google_client_id:          ${{ secrets.GOOGLE_CLIENT_ID }}
+          TF_VAR_google_client_secret:      ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          TF_VAR_gemini_api_key:            ${{ secrets.GEMINI_API_KEY }}
+          TF_VAR_openai_api_key:            ${{ secrets.OPENAI_API_KEY }}
         run: |
           terraform plan -no-color -out=tfplan \
             -var="project_id=${{ vars.GCP_PROJECT_ID }}" \
-            -var="mongodb_connection_string=${{ secrets.MONGODB_URL }}" \
-            -var="google_client_id=${{ secrets.GOOGLE_CLIENT_ID }}" \
-            -var="google_client_secret=${{ secrets.GOOGLE_CLIENT_SECRET }}" \
-            -var="secret_key=${{ secrets.APP_SECRET_KEY }}" \
-            -var="documents_bucket_name=estatio-documents-${{ vars.GCP_PROJECT_ID }}" 2>&1 | tee plan_output.txt
-        continue-on-error: true
+            -var="region=${{ vars.GCP_REGION || 'us-central1' }}" \
+            -var="documents_bucket_name=estatio-documents-${{ vars.GCP_PROJECT_ID }}" \
+            -var="github_repo=${{ vars.GITHUB_REPO_SLUG || github.repository }}" \
+            -var="backend_image=${{ vars.GCP_REGION || 'us-central1' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/estatio/backend:latest" \
+            -var="frontend_image=${{ vars.GCP_REGION || 'us-central1' }}-docker.pkg.dev/${{ vars.GCP_PROJECT_ID }}/estatio/frontend:latest" \
+            2>&1 | tee plan_output.txt
 
+      # ── Comment plan on PRs ───────────────────────────────────────────────
       - name: Comment PR with plan
         if: github.event_name == 'pull_request'
         uses: actions/github-script@v7
         with:
           script: |
-            const fs = require('fs')
+            const fs   = require('fs')
             const plan = fs.readFileSync('${{ env.WORKING_DIR }}/plan_output.txt', 'utf8')
-            const body = `## Terraform Plan\n\`\`\`\n${plan.slice(0, 65000)}\n\`\`\``
-            github.rest.issues.createComment({ issue_number: context.issue.number, owner: context.repo.owner, repo: context.repo.repo, body })
+            const body = `## Terraform Plan\n\`\`\`hcl\n${plan.slice(0, 65000)}\n\`\`\``
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner:        context.repo.owner,
+              repo:         context.repo.repo,
+              body,
+            })
 
+      # ── Apply (main branch only) ──────────────────────────────────────────
       - name: Terraform Apply
-        if: github.event_name == 'workflow_dispatch' || (github.event_name == 'push' && github.ref == 'refs/heads/main' && steps.plan.outcome == 'success')
+        if: |
+          (github.event_name == 'push' || github.event_name == 'workflow_dispatch') &&
+          github.ref == 'refs/heads/main' &&
+          steps.plan.outcome == 'success'
+        env:
+          TF_VAR_mongodb_connection_string: ${{ secrets.MONGODB_URL }}
+          TF_VAR_secret_key:                ${{ secrets.APP_SECRET_KEY }}
+          TF_VAR_google_client_id:          ${{ secrets.GOOGLE_CLIENT_ID }}
+          TF_VAR_google_client_secret:      ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          TF_VAR_gemini_api_key:            ${{ secrets.GEMINI_API_KEY }}
+          TF_VAR_openai_api_key:            ${{ secrets.OPENAI_API_KEY }}
         run: terraform apply -auto-approve tfplan

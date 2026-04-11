@@ -1,7 +1,17 @@
 ##############################################################################
 # Estatio – Secrets Module
-# Creates Secret Manager secrets, stores their initial values, and grants
-# the backend service account read access to each secret.
+#
+# Flow:
+#   1. GitHub Actions secrets hold the plaintext values.
+#   2. The Terraform workflow passes them as -var flags (sensitive = true).
+#   3. This module creates the Secret Manager resources and stores the values.
+#   4. The backend Cloud Run SA is granted secretAccessor on each secret.
+#
+# To rotate a secret:
+#   - Update the GitHub Actions secret value.
+#   - Re-run the Terraform workflow (push to main or workflow_dispatch).
+#   - Terraform will create a new secret version; the previous version is
+#     preserved automatically for auditing.
 ##############################################################################
 
 terraform {
@@ -16,33 +26,32 @@ terraform {
 }
 
 ##############################################################################
-# Local helpers
+# Locals – build the map of secret-name → value
 ##############################################################################
 
 locals {
-  # Core secrets that are always required.
+  # Core secrets — always required.
   core_secrets = {
-    "estatio-mongodb-url"           = var.mongodb_url
-    "estatio-secret-key"            = var.secret_key
-    "estatio-google-client-id"      = var.google_client_id
-    "estatio-google-client-secret"  = var.google_client_secret
-    "estatio-gcs-bucket-name"       = var.gcs_bucket_name
+    "estatio-mongodb-url"          = var.mongodb_url
+    "estatio-secret-key"           = var.secret_key
+    "estatio-google-client-id"     = var.google_client_id
+    "estatio-google-client-secret" = var.google_client_secret
+    "estatio-gcs-bucket-name"      = var.gcs_bucket_name
   }
 
-  # Optional AI secrets – only created when a non-empty value is supplied.
+  # Optional secrets — only created when a non-empty value is supplied.
   optional_secrets = {
     for k, v in {
-      "estatio-openai-api-key"  = var.openai_api_key
-      "estatio-gemini-api-key"  = var.gemini_api_key
+      "estatio-gemini-api-key" = var.gemini_api_key
+      "estatio-openai-api-key" = var.openai_api_key
     } : k => v if v != null && v != ""
   }
 
-  # All secrets merged for iteration.
   all_secrets = merge(local.core_secrets, local.optional_secrets)
 }
 
 ##############################################################################
-# Secret Manager – create secret resources
+# Secret Manager – secret resources (container objects, no data yet)
 ##############################################################################
 
 resource "google_secret_manager_secret" "secrets" {
@@ -57,12 +66,17 @@ resource "google_secret_manager_secret" "secrets" {
 
   labels = {
     app        = "estatio"
-    managed_by = "terraform"
+    managed-by = "terraform"
   }
 }
 
 ##############################################################################
-# Secret Manager – store secret values (initial version)
+# Secret Manager – secret versions (the actual plaintext values)
+#
+# NOTE: We do NOT use ignore_changes here so that rotating a secret value in
+# GitHub Actions secrets and re-running Terraform automatically creates a new
+# version. Secret Manager retains all previous versions; destroy them manually
+# if required.
 ##############################################################################
 
 resource "google_secret_manager_secret_version" "versions" {
@@ -71,17 +85,11 @@ resource "google_secret_manager_secret_version" "versions" {
   secret      = google_secret_manager_secret.secrets[each.key].id
   secret_data = each.value
 
-  # Changing the secret value in tfvars will automatically create a new
-  # version.  The previous version is NOT automatically destroyed to preserve
-  # an audit trail; destroy it manually if required.
-  lifecycle {
-    # Prevent Terraform plan noise when the sensitive value hasn't changed.
-    ignore_changes = [secret_data]
-  }
+  # Terraform marks secret_data as sensitive so it never appears in plan output.
 }
 
 ##############################################################################
-# IAM – grant the backend SA the ability to read all secrets
+# IAM – grant the backend service account secretAccessor on every secret
 ##############################################################################
 
 resource "google_secret_manager_secret_iam_member" "backend_accessor" {
@@ -103,7 +111,7 @@ variable "project_id" {
 }
 
 variable "backend_sa_email" {
-  description = "Email address of the backend service account that needs secret access."
+  description = "Email of the backend service account that needs to read secrets."
   type        = string
 }
 
@@ -114,7 +122,7 @@ variable "mongodb_url" {
 }
 
 variable "secret_key" {
-  description = "Application secret / JWT signing key."
+  description = "JWT / session signing key."
   type        = string
   sensitive   = true
 }
@@ -132,19 +140,20 @@ variable "google_client_secret" {
 }
 
 variable "gcs_bucket_name" {
-  description = "GCS bucket name to store as a secret (read by the backend at runtime)."
+  description = "GCS bucket name (stored as a secret so the backend reads it at runtime)."
   type        = string
+  # Not sensitive — bucket names are not credentials.
 }
 
-variable "openai_api_key" {
-  description = "OpenAI API key. Leave empty to skip secret creation."
+variable "gemini_api_key" {
+  description = "Google Gemini API key. Leave empty to skip creation."
   type        = string
   sensitive   = true
   default     = ""
 }
 
-variable "gemini_api_key" {
-  description = "Google Gemini API key. Leave empty to skip secret creation."
+variable "openai_api_key" {
+  description = "OpenAI API key. Leave empty to skip creation."
   type        = string
   sensitive   = true
   default     = ""
@@ -155,15 +164,11 @@ variable "gemini_api_key" {
 ##############################################################################
 
 output "secret_ids" {
-  description = "Map of secret name to Secret Manager resource ID."
-  value = {
-    for k, v in google_secret_manager_secret.secrets : k => v.id
-  }
+  description = "Map of secret name → full Secret Manager resource ID."
+  value       = { for k, v in google_secret_manager_secret.secrets : k => v.id }
 }
 
 output "secret_names" {
-  description = "Map of secret name to the short secret_id (used for Cloud Run secret references)."
-  value = {
-    for k, v in google_secret_manager_secret.secrets : k => v.secret_id
-  }
+  description = "Map of secret name → short secret_id (used in Cloud Run --set-secrets)."
+  value       = { for k, v in google_secret_manager_secret.secrets : k => v.secret_id }
 }
