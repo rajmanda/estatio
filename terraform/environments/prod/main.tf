@@ -302,13 +302,15 @@ variable "gemini_api_key" {
 }
 
 variable "backend_image" {
-  description = "Backend container image URI."
+  description = "Backend container image URI. Empty = use placeholder for initial creation."
   type        = string
+  default     = ""
 }
 
 variable "frontend_image" {
-  description = "Frontend container image URI."
+  description = "Frontend container image URI. Empty = use placeholder for initial creation."
   type        = string
+  default     = ""
 }
 
 variable "backend_min_instances" {

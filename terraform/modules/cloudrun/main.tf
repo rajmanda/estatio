@@ -25,6 +25,15 @@ locals {
     managed_by = "terraform"
     region     = var.region
   }
+
+  # Google's official Cloud Run placeholder — a tiny "Hello" container.
+  # Used for initial creation when real images haven't been built yet.
+  # The CI/CD pipelines replace this on their first deploy, and
+  # ignore_changes on the image field keeps Terraform from reverting it.
+  placeholder_image = "us-docker.pkg.dev/cloudrun/container/hello:latest"
+
+  backend_image  = var.backend_image != "" ? var.backend_image : local.placeholder_image
+  frontend_image = var.frontend_image != "" ? var.frontend_image : local.placeholder_image
 }
 
 ##############################################################################
@@ -52,7 +61,7 @@ resource "google_cloud_run_v2_service" "backend" {
 
     # Per-instance resource limits.
     containers {
-      image = var.backend_image
+      image = local.backend_image
 
       resources {
         limits = {
@@ -247,7 +256,7 @@ resource "google_cloud_run_v2_service" "frontend" {
     }
 
     containers {
-      image = var.frontend_image
+      image = local.frontend_image
 
       resources {
         limits = {
@@ -347,13 +356,15 @@ variable "environment" {
 }
 
 variable "backend_image" {
-  description = "Full container image reference for the backend service."
+  description = "Full container image reference for the backend service. Falls back to a placeholder for initial creation."
   type        = string
+  default     = ""
 }
 
 variable "frontend_image" {
-  description = "Full container image reference for the frontend service."
+  description = "Full container image reference for the frontend service. Falls back to a placeholder for initial creation."
   type        = string
+  default     = ""
 }
 
 variable "backend_sa_email" {

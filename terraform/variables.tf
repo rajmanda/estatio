@@ -100,13 +100,15 @@ variable "gemini_api_key" {
 # ---------------------------------------------------------------------------
 
 variable "backend_image" {
-  description = "Full Artifact Registry image path for the backend service, e.g. us-central1-docker.pkg.dev/PROJECT/estatio-images/backend:latest"
+  description = "Full Artifact Registry image path for the backend service. Leave empty to use a placeholder on initial creation."
   type        = string
+  default     = ""
 }
 
 variable "frontend_image" {
-  description = "Full Artifact Registry image path for the frontend service, e.g. us-central1-docker.pkg.dev/PROJECT/estatio-images/frontend:latest"
+  description = "Full Artifact Registry image path for the frontend service. Leave empty to use a placeholder on initial creation."
   type        = string
+  default     = ""
 }
 
 # ---------------------------------------------------------------------------
