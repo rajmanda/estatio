@@ -102,6 +102,65 @@ jobs:
       - name: Terraform Init
         run: terraform init
 
+      # ── Import pre-existing resources ──────────────────────────────────
+      # Resources created by setup-gcp.sh before Terraform was introduced.
+      # Each import is idempotent — if already in state, it's a no-op.
+      - name: Import pre-existing GCP resources
+        env:
+          TF_VAR_mongodb_connection_string: ${{ secrets.MONGODB_URL }}
+          TF_VAR_secret_key:                ${{ secrets.APP_SECRET_KEY }}
+          TF_VAR_google_client_id:          ${{ secrets.GOOGLE_CLIENT_ID }}
+          TF_VAR_google_client_secret:      ${{ secrets.GOOGLE_CLIENT_SECRET }}
+          TF_VAR_gemini_api_key:            ${{ secrets.GEMINI_API_KEY }}
+          TF_VAR_openai_api_key:            ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          PROJECT="${{ vars.GCP_PROJECT_ID }}"
+          REGION="${{ vars.GCP_REGION || 'us-central1' }}"
+          REPO="${{ vars.GITHUB_REPO_SLUG || github.repository }}"
+          COMMON_VARS=(
+            -var="project_id=${PROJECT}"
+            -var="region=${REGION}"
+            -var="documents_bucket_name=estatio-documents-${PROJECT}"
+            -var="github_repo=${REPO}"
+          )
+
+          # Helper: import a resource, skip if already in state
+          import_if_missing() {
+            local ADDR="$1"
+            local ID="$2"
+            if terraform state show "$ADDR" > /dev/null 2>&1; then
+              echo "✅ $ADDR already in state — skipping."
+            else
+              echo "📥 Importing $ADDR ..."
+              terraform import "${COMMON_VARS[@]}" "$ADDR" "$ID" || echo "⚠️  Import of $ADDR failed (may not exist in GCP) — continuing."
+            fi
+          }
+
+          # Workload Identity Pool + Provider
+          import_if_missing "module.iam.google_iam_workload_identity_pool.github" \
+            "projects/${PROJECT}/locations/global/workloadIdentityPools/github-pool"
+
+          import_if_missing "module.iam.google_iam_workload_identity_pool_provider.github" \
+            "projects/${PROJECT}/locations/global/workloadIdentityPools/github-pool/providers/github-provider"
+
+          # Service accounts (created by setup-gcp.sh as "estatio-cicd")
+          import_if_missing "module.iam.google_service_account.cicd" \
+            "projects/${PROJECT}/serviceAccounts/estatio-cicd-sa@${PROJECT}.iam.gserviceaccount.com"
+
+          import_if_missing "module.iam.google_service_account.backend" \
+            "projects/${PROJECT}/serviceAccounts/estatio-backend-sa@${PROJECT}.iam.gserviceaccount.com"
+
+          import_if_missing "module.iam.google_service_account.frontend" \
+            "projects/${PROJECT}/serviceAccounts/estatio-frontend-sa@${PROJECT}.iam.gserviceaccount.com"
+
+          # Artifact Registry
+          import_if_missing "google_artifact_registry_repository.estatio_images" \
+            "projects/${PROJECT}/locations/${REGION}/repositories/estatio-images"
+
+          # GCS document bucket
+          import_if_missing "google_storage_bucket.documents" \
+            "estatio-documents-${PROJECT}"
+
       # ── Validate ─────────────────────────────────────────────────────────
       - name: Terraform Validate
         run: terraform validate
