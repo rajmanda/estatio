@@ -49,11 +49,13 @@ class Settings(BaseSettings):
 
     # CORS
     FRONTEND_URL: str = "http://localhost:3000"
-    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+    CORS_ORIGINS: Optional[List[str]] = None
 
     @field_validator("CORS_ORIGINS", mode="before")
     @classmethod
     def parse_cors(cls, v):
+        if v is None:
+            return None
         if isinstance(v, str):
             try:
                 return json.loads(v)
@@ -62,8 +64,10 @@ class Settings(BaseSettings):
         return v
 
     @model_validator(mode="after")
-    def derive_redirect_uri(self):
-        """Fall back to localhost redirect URI when not explicitly set."""
+    def derive_cors_and_redirect(self):
+        """Derive CORS_ORIGINS from FRONTEND_URL and set default redirect URI."""
+        if not self.CORS_ORIGINS:
+            self.CORS_ORIGINS = [self.FRONTEND_URL, "http://localhost:3000"]
         if not self.GOOGLE_REDIRECT_URI:
             self.GOOGLE_REDIRECT_URI = (
                 "http://localhost:8000/api/v1/auth/google/callback"

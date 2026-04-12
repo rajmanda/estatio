@@ -109,10 +109,7 @@ resource "google_cloud_run_v2_service" "backend" {
         value = var.frontend_url
       }
 
-      env {
-        name  = "CORS_ORIGINS"
-        value = jsonencode([var.frontend_url, "http://localhost:3000"])
-      }
+      # CORS_ORIGINS is derived from FRONTEND_URL in the backend app
 
       # ----------------------------------------------------------------
       # Secret-backed environment variables

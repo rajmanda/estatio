@@ -137,7 +137,6 @@ jobs:
             GCS_PROJECT_ID=${{ env.PROJECT_ID }}
             GOOGLE_REDIRECT_URI=${{ vars.BACKEND_URL }}/api/v1/auth/google/callback
             FRONTEND_URL=${{ vars.FRONTEND_URL }}
-            CORS_ORIGINS=["${{ vars.FRONTEND_URL }}","http://localhost:3000"]
           secrets: |
             MONGODB_URL=estatio-mongodb-url:latest
             SECRET_KEY=estatio-secret-key:latest
