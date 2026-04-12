@@ -99,6 +99,16 @@ resource "google_cloud_run_v2_service" "backend" {
         value = var.gcs_bucket_name
       }
 
+      env {
+        name  = "GOOGLE_REDIRECT_URI"
+        value = var.google_redirect_uri
+      }
+
+      env {
+        name  = "FRONTEND_URL"
+        value = var.frontend_url
+      }
+
       # ----------------------------------------------------------------
       # Secret-backed environment variables
       # Each secret must exist in Secret Manager before deployment.
@@ -384,6 +394,18 @@ variable "gcs_bucket_name" {
 variable "secret_names" {
   description = "Map of logical secret name to Secret Manager secret_id, as produced by the secrets module."
   type        = map(string)
+}
+
+variable "google_redirect_uri" {
+  description = "Google OAuth callback URI for the backend."
+  type        = string
+  default     = ""
+}
+
+variable "frontend_url" {
+  description = "Public URL of the frontend (used for CORS and OAuth redirects)."
+  type        = string
+  default     = ""
 }
 
 variable "backend_min_instances" {

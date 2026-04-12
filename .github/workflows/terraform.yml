@@ -205,6 +205,8 @@ jobs:
             -var="region=${{ vars.GCP_REGION || 'us-central1' }}" \
             -var="documents_bucket_name=estatio-documents-${{ vars.GCP_PROJECT_ID }}" \
             -var="github_repo=${{ vars.GITHUB_REPO_SLUG || github.repository }}" \
+            -var="google_redirect_uri=${{ vars.BACKEND_URL }}/api/v1/auth/google/callback" \
+            -var="frontend_url=${{ vars.FRONTEND_URL }}" \
             2>&1 | tee plan_output.txt
 
       # ── Comment plan on PRs ───────────────────────────────────────────────

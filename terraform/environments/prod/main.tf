@@ -218,6 +218,9 @@ module "cloudrun" {
   gcs_bucket_name   = google_storage_bucket.documents.name
   secret_names      = module.secrets.secret_names
 
+  google_redirect_uri = var.google_redirect_uri
+  frontend_url        = var.frontend_url
+
   backend_min_instances  = var.backend_min_instances
   backend_max_instances  = var.backend_max_instances
   frontend_min_instances = var.frontend_min_instances
@@ -345,6 +348,18 @@ variable "domain_name" {
 
 variable "github_repo" {
   description = "GitHub repository for Workload Identity (owner/repo)."
+  type        = string
+  default     = ""
+}
+
+variable "google_redirect_uri" {
+  description = "Google OAuth callback URI for the backend."
+  type        = string
+  default     = ""
+}
+
+variable "frontend_url" {
+  description = "Public URL of the frontend."
   type        = string
   default     = ""
 }
