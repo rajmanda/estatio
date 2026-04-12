@@ -109,6 +109,11 @@ resource "google_cloud_run_v2_service" "backend" {
         value = var.frontend_url
       }
 
+      env {
+        name  = "CORS_ORIGINS"
+        value = jsonencode([var.frontend_url, "http://localhost:3000"])
+      }
+
       # ----------------------------------------------------------------
       # Secret-backed environment variables
       # Each secret must exist in Secret Manager before deployment.
