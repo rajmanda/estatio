@@ -65,11 +65,11 @@ jobs:
           if [[ "${{ github.ref }}" == "refs/heads/main" ]]; then
             echo "environment=prod" >> $GITHUB_OUTPUT
             echo "service_suffix=" >> $GITHUB_OUTPUT
-            echo "api_url=https://estatio-api-xxxx-uc.a.run.app" >> $GITHUB_OUTPUT
+            echo "api_url=https://estatio-api-ht4p2vwsjq-uc.a.run.app" >> $GITHUB_OUTPUT
           else
             echo "environment=staging" >> $GITHUB_OUTPUT
             echo "service_suffix=-staging" >> $GITHUB_OUTPUT
-            echo "api_url=https://estatio-api-staging-xxxx-uc.a.run.app" >> $GITHUB_OUTPUT
+            echo "api_url=https://estatio-api-ht4p2vwsjq-uc.a.run.app" >> $GITHUB_OUTPUT
           fi
 
       - name: Authenticate to Google Cloud
