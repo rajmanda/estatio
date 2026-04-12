@@ -230,4 +230,46 @@ The redirect URI in Google Cloud Console must exactly match `GOOGLE_REDIRECT_URI
 **Celery tasks not processing**
 Ensure Redis is running and `REDIS_URL` points to it. When using Docker Compose, this is handled automatically.
 
-Hello
+---
+
+## Deploying to GCP (CI/CD)
+
+All three pipelines can be triggered manually from the command line using the GitHub CLI (`gh`).
+
+### Trigger individual pipelines
+
+**Backend** — builds the Docker image, pushes to Artifact Registry, and deploys to Cloud Run:
+
+```bash
+gh workflow run "Backend CI/CD" --ref main
+```
+
+Use this after any backend code change, dependency update (`requirements.txt`), or GCP secret update that requires the Cloud Run service to be redeployed with new environment variables.
+
+**Frontend** — builds the React app and deploys the static bundle to Cloud Run (or hosting):
+
+```bash
+gh workflow run "Frontend CI/CD" --ref main
+```
+
+Use this after any frontend code change, or to redeploy the frontend independently of the backend.
+
+**Terraform** — provisions or updates all GCP infrastructure (Cloud Run services, Artifact Registry, Secret Manager secrets, IAM bindings, etc.):
+
+```bash
+gh workflow run "Terraform" --ref main
+```
+
+Use this when you change any `.tf` file under `terraform/`, or when you need to create GCP resources from scratch on a new project.
+
+> **Note:** Normal code pushes to `main` trigger the Backend and Frontend pipelines automatically via path filters (`backend/**` and `frontend/**`). Manual triggers are useful when you need to force a redeploy without a code change, or when the automatic trigger did not fire.
+
+### Tear down all GCP infrastructure
+
+To destroy all Terraform-managed resources (Cloud Run, Artifact Registry, secrets, etc.) and stop incurring GCP costs:
+
+```bash
+gh workflow run "terraform-destroy" --ref main
+```
+
+> **Warning:** This is irreversible. It deletes all infrastructure including Secret Manager secrets. Ensure you have local backups of any secrets before running this.
