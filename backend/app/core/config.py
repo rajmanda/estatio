@@ -64,23 +64,11 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def derive_redirect_uri(self):
-        """Auto-derive GOOGLE_REDIRECT_URI on Cloud Run when not explicitly set."""
+        """Fall back to localhost redirect URI when not explicitly set."""
         if not self.GOOGLE_REDIRECT_URI:
-            # Cloud Run always sets K_SERVICE and K_REVISION env vars.
-            k_service = os.environ.get("K_SERVICE")
-            gcp_region = os.environ.get("CLOUD_RUN_REGION", "us-central1")
-            gcp_project = os.environ.get("GCS_PROJECT_ID", "")
-            if k_service:
-                # Build the deterministic Cloud Run URL.
-                self.GOOGLE_REDIRECT_URI = (
-                    f"https://{k_service}-{gcp_project}.{gcp_region}.run.app"
-                    f"/api/v1/auth/google/callback"
-                )
-            else:
-                # Local development fallback.
-                self.GOOGLE_REDIRECT_URI = (
-                    "http://localhost:8000/api/v1/auth/google/callback"
-                )
+            self.GOOGLE_REDIRECT_URI = (
+                "http://localhost:8000/api/v1/auth/google/callback"
+            )
         return self
 
     class Config:

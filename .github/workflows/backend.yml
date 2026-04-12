@@ -140,7 +140,7 @@ jobs:
             --cpu=1
             --concurrency=80
             --set-env-vars=APP_ENV=${{ steps.env.outputs.environment }},GCS_PROJECT_ID=${{ env.PROJECT_ID }}
-            --set-secrets=MONGODB_URL=estatio-mongodb-url:latest,SECRET_KEY=estatio-secret-key:latest,GOOGLE_CLIENT_ID=estatio-google-client-id:latest,GOOGLE_CLIENT_SECRET=estatio-google-client-secret:latest,GCS_BUCKET_NAME=estatio-gcs-bucket-name:latest,GEMINI_API_KEY=estatio-gemini-api-key:latest
+            --set-secrets=MONGODB_URL=estatio-mongodb-url:latest,SECRET_KEY=estatio-secret-key:latest,GOOGLE_CLIENT_ID=estatio-google-client-id:latest,GOOGLE_CLIENT_SECRET=estatio-google-client-secret:latest,GOOGLE_REDIRECT_URI=estatio-google-redirect-uri:latest,GCS_BUCKET_NAME=estatio-gcs-bucket-name:latest,GEMINI_API_KEY=estatio-gemini-api-key:latest
 
       - name: Show deployed URL
         run: echo "✅ Backend deployed to ${{ steps.deploy.outputs.url }}"
