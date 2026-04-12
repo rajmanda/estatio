@@ -13,7 +13,8 @@ WORKDIR /app
 # Install Python deps
 COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+    pip install --no-cache-dir -r requirements.txt && \
+    python -c "import passlib; import bcrypt; print('passlib + bcrypt OK')"
 
 # Copy application
 COPY app/ ./app/
