@@ -280,7 +280,7 @@ resource "google_cloud_run_v2_service" "frontend" {
       startup_probe {
         http_get {
           path = "/"
-          port = 3000
+          port = 8080
         }
         initial_delay_seconds = 3
         timeout_seconds       = 3
@@ -291,7 +291,7 @@ resource "google_cloud_run_v2_service" "frontend" {
       liveness_probe {
         http_get {
           path = "/"
-          port = 3000
+          port = 8080
         }
         initial_delay_seconds = 0
         timeout_seconds       = 3
@@ -300,7 +300,7 @@ resource "google_cloud_run_v2_service" "frontend" {
       }
 
       ports {
-        container_port = 3000
+        container_port = 8080
         name           = "http1"
       }
     }
