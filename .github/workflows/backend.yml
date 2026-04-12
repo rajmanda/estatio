@@ -132,18 +132,6 @@ jobs:
           service: ${{ env.SERVICE_NAME }}${{ steps.env.outputs.service_suffix }}
           region: ${{ env.REGION }}
           image: ${{ steps.tag.outputs.tag }}
-          env_vars: |
-            APP_ENV=${{ steps.env.outputs.environment }}
-            GCS_PROJECT_ID=${{ env.PROJECT_ID }}
-            GOOGLE_REDIRECT_URI=${{ vars.BACKEND_URL }}/api/v1/auth/google/callback
-            FRONTEND_URL=${{ vars.FRONTEND_URL }}
-          secrets: |
-            MONGODB_URL=estatio-mongodb-url:latest
-            SECRET_KEY=estatio-secret-key:latest
-            GOOGLE_CLIENT_ID=estatio-google-client-id:latest
-            GOOGLE_CLIENT_SECRET=estatio-google-client-secret:latest
-            GCS_BUCKET_NAME=estatio-gcs-bucket-name:latest
-            GEMINI_API_KEY=estatio-gemini-api-key:latest
           flags: |
             --allow-unauthenticated
             --min-instances=0
@@ -151,8 +139,8 @@ jobs:
             --memory=512Mi
             --cpu=1
             --concurrency=80
-            --clear-env-vars
-            --clear-secrets
+            --set-env-vars=^@^APP_ENV=${{ steps.env.outputs.environment }}@GCS_PROJECT_ID=${{ env.PROJECT_ID }}@GOOGLE_REDIRECT_URI=${{ vars.BACKEND_URL }}/api/v1/auth/google/callback@FRONTEND_URL=${{ vars.FRONTEND_URL }}
+            --set-secrets=^@^MONGODB_URL=estatio-mongodb-url:latest@SECRET_KEY=estatio-secret-key:latest@GOOGLE_CLIENT_ID=estatio-google-client-id:latest@GOOGLE_CLIENT_SECRET=estatio-google-client-secret:latest@GCS_BUCKET_NAME=estatio-gcs-bucket-name:latest@GEMINI_API_KEY=estatio-gemini-api-key:latest
 
       - name: Show deployed URL
         run: echo "✅ Backend deployed to ${{ steps.deploy.outputs.url }}"
