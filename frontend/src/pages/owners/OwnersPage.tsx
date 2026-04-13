@@ -34,7 +34,7 @@ function OwnerModal({ onClose, onSave }: { onClose: () => void; onSave: (data: o
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-white/50 mb-1 block">First Name</label>
-                <input value={form.first_name} onChange={set('first_name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
+                <input autoFocus value={form.first_name} onChange={set('first_name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
               </div>
               <div>
                 <label className="text-xs text-white/50 mb-1 block">Last Name</label>

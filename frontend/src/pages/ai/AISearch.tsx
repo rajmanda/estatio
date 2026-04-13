@@ -114,6 +114,7 @@ export default function AISearch() {
       <GlassCard className="sticky bottom-4">
         <form onSubmit={e => { e.preventDefault(); handleSubmit() }} className="flex gap-3">
           <input
+            autoFocus
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Ask anything about your portfolio…"
