@@ -24,6 +24,7 @@ const InvoicesPage     = lazy(() => import('./pages/invoices/InvoicesPage'))
 const VendorsPage      = lazy(() => import('./pages/vendors/VendorsPage'))
 const DocumentsPage    = lazy(() => import('./pages/documents/DocumentsPage'))
 const SettingsPage     = lazy(() => import('./pages/settings/SettingsPage'))
+const AddPropertyPage  = lazy(() => import('./pages/properties/AddPropertyPage'))
 
 const Spinner = () => (
   <div className="flex items-center justify-center h-64">
@@ -61,6 +62,7 @@ export default function App() {
           >
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Suspense fallback={<Spinner />}><DashboardRoute /></Suspense>} />
+            <Route path="properties/new" element={<Suspense fallback={<Spinner />}><AddPropertyPage /></Suspense>} />
             <Route path="properties" element={<Suspense fallback={<Spinner />}><PropertiesPage /></Suspense>} />
             <Route path="maintenance" element={<Suspense fallback={<Spinner />}><MaintenancePage /></Suspense>} />
             <Route path="notifications" element={<Suspense fallback={<Spinner />}><NotificationsPage /></Suspense>} />
