@@ -75,7 +75,7 @@ export default function OwnersPage() {
   })
 
   const createMutation = useMutation({
-    mutationFn: (d: object) => ownersApi.list(d),
+    mutationFn: (d: object) => ownersApi.create(d),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['owners'] }); setShowModal(false) },
   })
 
