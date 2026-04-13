@@ -34,20 +34,20 @@ function OwnerModal({ onClose, onSave }: { onClose: () => void; onSave: (data: o
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-white/50 mb-1 block">First Name</label>
-                <input autoFocus value={form.first_name} onChange={set('first_name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
+                <input autoFocus type="text" name="first_name" inputMode="text" value={form.first_name} onChange={set('first_name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
               </div>
               <div>
                 <label className="text-xs text-white/50 mb-1 block">Last Name</label>
-                <input value={form.last_name} onChange={set('last_name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
+                <input type="text" name="last_name" inputMode="text" value={form.last_name} onChange={set('last_name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
               </div>
             </div>
             <div>
               <label className="text-xs text-white/50 mb-1 block">Email</label>
-              <input type="email" value={form.email} onChange={set('email')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
+              <input type="email" name="email" inputMode="email" value={form.email} onChange={set('email')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
             </div>
             <div>
               <label className="text-xs text-white/50 mb-1 block">Phone</label>
-              <input value={form.phone} onChange={set('phone')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
+              <input type="tel" name="phone" inputMode="tel" value={form.phone} onChange={set('phone')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
             </div>
             <div>
               <label className="text-xs text-white/50 mb-1 block">Notes</label>

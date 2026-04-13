@@ -41,7 +41,7 @@ function VendorModal({ onClose, onSave }: { onClose: () => void; onSave: (d: obj
           <div className="space-y-3">
             <div>
               <label className="text-xs text-white/50 mb-1 block">Company Name *</label>
-              <input autoFocus value={form.name} onChange={set('name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
+              <input autoFocus type="text" name="company_name" inputMode="text" value={form.name} onChange={set('name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

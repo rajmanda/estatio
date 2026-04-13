@@ -95,7 +95,7 @@ export default function AddPropertyPage() {
           <h3 className="text-sm font-semibold text-white/70">Basic Information</h3>
           <div>
             <label className={labelClass}>Property Name *</label>
-            <input autoFocus required className={inputClass} placeholder="e.g. Oak Street Duplex"
+            <input autoFocus required type="text" name="property_name" inputMode="text" className={inputClass} placeholder="e.g. Oak Street Duplex"
               value={form.name} onChange={e => set('name', e.target.value)} />
           </div>
           <div className="grid grid-cols-2 gap-3">
