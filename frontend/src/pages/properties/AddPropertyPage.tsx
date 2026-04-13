@@ -48,6 +48,13 @@ export default function AddPropertyPage() {
     setForm(f => ({ ...f, [field]: value }))
   }
 
+  function handleInput(field: string) {
+    return (e: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+      const target = e.target as HTMLInputElement | HTMLTextAreaElement
+      set(field, target.value)
+    }
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError('')
@@ -96,7 +103,7 @@ export default function AddPropertyPage() {
           <div>
             <label className={labelClass}>Property Name *</label>
             <input autoFocus required type="text" name="property_name" inputMode="text" className={inputClass} placeholder="e.g. Oak Street Duplex"
-              value={form.name} onChange={e => set('name', e.target.value)} />
+              value={form.name} onChange={e => set('name', e.target.value)} onInput={handleInput('name')} />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <div>

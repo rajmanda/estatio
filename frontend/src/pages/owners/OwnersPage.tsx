@@ -25,6 +25,11 @@ function OwnerModal({ onClose, onSave }: { onClose: () => void; onSave: (data: o
   const set = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
     setForm(f => ({ ...f, [k]: e.target.value }))
 
+  const handleInput = (k: string) => (e: React.FormEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const target = e.target as HTMLInputElement | HTMLTextAreaElement
+    setForm(f => ({ ...f, [k]: target.value }))
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pointer-events-auto">
       <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md pointer-events-auto">
@@ -34,24 +39,24 @@ function OwnerModal({ onClose, onSave }: { onClose: () => void; onSave: (data: o
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-xs text-white/50 mb-1 block">First Name</label>
-                <input autoFocus type="text" name="first_name" inputMode="text" value={form.first_name} onChange={set('first_name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
+                <input autoFocus type="text" name="first_name" inputMode="text" value={form.first_name} onChange={set('first_name')} onInput={handleInput('first_name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
               </div>
               <div>
                 <label className="text-xs text-white/50 mb-1 block">Last Name</label>
-                <input type="text" name="last_name" inputMode="text" value={form.last_name} onChange={set('last_name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
+                <input type="text" name="last_name" inputMode="text" value={form.last_name} onChange={set('last_name')} onInput={handleInput('last_name')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
               </div>
             </div>
             <div>
               <label className="text-xs text-white/50 mb-1 block">Email</label>
-              <input type="email" name="email" inputMode="email" value={form.email} onChange={set('email')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
+              <input type="email" name="email" inputMode="email" value={form.email} onChange={set('email')} onInput={handleInput('email')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
             </div>
             <div>
               <label className="text-xs text-white/50 mb-1 block">Phone</label>
-              <input type="tel" name="phone" inputMode="tel" value={form.phone} onChange={set('phone')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
+              <input type="tel" name="phone" inputMode="tel" value={form.phone} onChange={set('phone')} onInput={handleInput('phone')} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60" />
             </div>
             <div>
               <label className="text-xs text-white/50 mb-1 block">Notes</label>
-              <textarea value={form.notes} onChange={set('notes')} rows={2} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60 resize-none" />
+              <textarea value={form.notes} onChange={set('notes')} onInput={handleInput('notes')} rows={2} className="w-full bg-white/8 border border-white/15 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:border-indigo-500/60 resize-none" />
             </div>
           </div>
           <div className="flex gap-3 mt-5">
