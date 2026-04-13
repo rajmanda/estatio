@@ -34,8 +34,8 @@ function VendorModal({ onClose, onSave }: { onClose: () => void; onSave: (d: obj
     setForm(f => ({ ...f, trade_specialties: f.trade_specialties.includes(t) ? f.trade_specialties.filter(x => x !== t) : [...f.trade_specialties, t] }))
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
-      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 pointer-events-auto">
+      <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-md pointer-events-auto">
         <GlassCard>
           <h3 className="text-lg font-semibold text-white mb-5">Add Vendor</h3>
           <div className="space-y-3">

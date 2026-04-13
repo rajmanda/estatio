@@ -432,6 +432,29 @@ a, button, input, select, textarea {
   transition: color var(--transition-fast), background-color var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+/* Mobile-specific input fixes */
+input, textarea, select {
+  /* Ensure touch events are not blocked */
+  touch-action: manipulation;
+  /* Allow text selection on mobile */
+  -webkit-user-select: text;
+  user-select: text;
+  /* Prevent iOS auto-zoom on input focus */
+  font-size: 16px;
+  /* Enable proper rendering on mobile */
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Ensure modals don't block input on mobile */
+@media (max-width: 640px) {
+  input, textarea, select {
+    font-size: 16px !important;
+    padding: 12px !important;
+    min-height: 44px !important;
+  }
+}
+
 /* Page transition wrapper */
 .page-enter {
   animation: fadeIn 0.3s ease-out, slideUp 0.4s ease-out;

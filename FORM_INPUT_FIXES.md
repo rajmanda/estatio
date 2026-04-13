@@ -54,18 +54,37 @@ User reports inability to type in form inputs across the application (Add Proper
 - [ ] Tab navigation works between fields
 - [ ] Form submission works after fixes
 
-## Status: ✅ COMPLETED
-Last Updated: 2026-04-13 11:40 UTC
+## Status: ✅ COMPLETED - MOBILE FIX APPLIED
+Last Updated: 2026-04-13 11:45 UTC
+
+### CRITICAL MOBILE FIX DISCOVERED
+User reported complete input blocking on Samsung Z Flip 6. Root cause identified and fixed.
 
 ---
 
 ## Implementation Details
 
 ### Changes Made:
+
+#### First Round (autoFocus improvements):
 1. **OwnersPage.tsx** - Added `autoFocus` to first_name input (Line 37)
 2. **AddPropertyPage.tsx** - Added `autoFocus` to property name input (Line 99)
 3. **VendorsPage.tsx** - Added `autoFocus` to company name input (Line 44)
 4. **AISearch.tsx** - Added `autoFocus` to query input (Line 116)
+
+#### Second Round (Mobile-specific CSS fixes):
+1. **globals.css** - Added mobile-specific input CSS:
+   - `touch-action: manipulation` - Prevents double-tap zoom issues
+   - `-webkit-user-select: text` - Enables text selection on mobile
+   - `font-size: 16px` - Prevents iOS auto-zoom on focus
+   - `-webkit-appearance: none` - Removes iOS default styling
+   - Media query for minimum 44px touch target height
+
+2. **OwnersPage.tsx** - Added `pointer-events-auto` to modal (Line 29, 30)
+   - Ensures modal and content receive touch events properly
+
+3. **VendorsPage.tsx** - Added `pointer-events-auto` to modal (Line 37, 38)
+   - Ensures modal and content receive touch events properly
 
 ### Root Cause:
 When modal forms open, the browser doesn't automatically move focus to the first input field. While users CAN still type (keyboard events work), they may not realize they can start typing immediately. Adding `autoFocus` on the first input ensures the user's keyboard focus is properly placed when the form appears.
