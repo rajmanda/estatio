@@ -67,6 +67,10 @@ html {
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
   scroll-behavior: smooth;
+  /* Ensure touch events work on all devices */
+  touch-action: auto;
+  -webkit-touch-callout: default;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
@@ -81,6 +85,10 @@ body {
   color: var(--text-primary);
   min-height: 100vh;
   overflow-x: hidden;
+  /* Ensure touch events are not blocked on mobile */
+  touch-action: auto;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 #root {
@@ -435,7 +443,7 @@ a, button, input, select, textarea {
 /* Mobile-specific input fixes */
 input, textarea, select {
   /* Ensure touch events are not blocked */
-  touch-action: manipulation;
+  touch-action: auto;
   /* Allow text selection on mobile */
   -webkit-user-select: text;
   user-select: text;
@@ -444,6 +452,20 @@ input, textarea, select {
   /* Enable proper rendering on mobile */
   -webkit-appearance: none;
   appearance: none;
+  /* Ensure webkit allows input */
+  -webkit-user-modify: read-write-plaintext-only;
+  /* Prevent input from being disabled by webkit */
+  -webkit-highlight: none;
+}
+
+/* Ensure form elements don't block touch events */
+form {
+  touch-action: auto;
+}
+
+/* Ensure all divs with fixed/absolute positioning allow touch */
+div[class*="modal"], div[class*="popup"], div[class*="backdrop"] {
+  touch-action: auto;
 }
 
 /* Ensure modals don't block input on mobile */
